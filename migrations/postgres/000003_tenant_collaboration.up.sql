@@ -1,0 +1,59 @@
+CREATE TABLE invitations (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    email TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    expires_at TIMESTAMPTZ NOT NULL,
+    accepted_by_user_id TEXT,
+    version BIGINT NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    created_by TEXT NOT NULL,
+    updated_by TEXT NOT NULL
+);
+CREATE INDEX idx_invitations_tenant_status ON invitations (tenant_id, status, created_at DESC);
+
+CREATE TABLE member_groups (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    code TEXT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    version BIGINT NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    created_by TEXT NOT NULL,
+    updated_by TEXT NOT NULL,
+    UNIQUE (tenant_id, code)
+);
+
+CREATE TABLE group_members (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    group_id TEXT NOT NULL REFERENCES member_groups(id) ON DELETE CASCADE,
+    membership_id TEXT NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'active',
+    version BIGINT NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    created_by TEXT NOT NULL,
+    updated_by TEXT NOT NULL,
+    UNIQUE (group_id, membership_id)
+);
+CREATE INDEX idx_group_members_membership ON group_members (tenant_id, membership_id) WHERE status = 'active';
+
+CREATE TABLE tenant_quotas (
+    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    quota_key TEXT NOT NULL,
+    limit_value BIGINT NOT NULL,
+    used_value BIGINT NOT NULL DEFAULT 0,
+    version BIGINT NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    created_by TEXT NOT NULL,
+    updated_by TEXT NOT NULL,
+    PRIMARY KEY (tenant_id, quota_key),
+    CHECK (limit_value >= 0),
+    CHECK (used_value >= 0)
+);

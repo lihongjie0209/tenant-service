@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	hellov1 "github.com/lihongjie0209/tenant-service/gen/hello/v1"
+	tenantv1 "github.com/lihongjie0209/platform-protos/gen/go/platform/tenant/v1"
 	"github.com/lihongjie0209/tenant-service/internal/app"
 	"github.com/lihongjie0209/tenant-service/internal/auth"
 	"github.com/lihongjie0209/tenant-service/internal/config"
@@ -71,7 +71,7 @@ func TestHTTPAndGRPCEndToEnd(t *testing.T) {
 		Health:        config.Health{DatabaseTimeout: 2 * time.Second, RedisTimeout: 2 * time.Second},
 		Observability: config.Observability{MetricsEnabled: true},
 		JWT:           config.JWT{Issuer: "integration", Secret: secret, TTL: time.Hour},
-		Auth:          config.Auth{ClientID: "client", ClientSecret: "secret", SkipHTTPPaths: []string{"/api/v1/version"}, SkipGRPCMethods: []string{"/grpc.health.v1.Health/*"}, PSK: config.PSK{Enabled: true, Key: secret, HTTPPaths: []string{"/api/v1/users/list"}, GRPCMethods: []string{"/hello.v1.HelloService/*"}}},
+		Auth:          config.Auth{ClientID: "client", ClientSecret: "secret", SkipHTTPPaths: []string{"/api/v1/version"}, SkipGRPCMethods: []string{"/grpc.health.v1.Health/*"}, PSK: config.PSK{Enabled: true, Key: secret, HTTPPaths: []string{"/api/v1/tenants/get"}, GRPCMethods: []string{"/platform.tenant.v1.TenantService/GetTenant"}}},
 		Cron:          config.Cron{Enabled: false, Timezone: "UTC"},
 		User:          config.User{CacheTTL: time.Minute, LockTTL: 10 * time.Second, LockRetryDelay: 20 * time.Millisecond},
 		Idempotency:   config.Idempotency{Enabled: true, ProcessingTTL: 30 * time.Second, ResultTTL: time.Hour, FailureTTL: time.Minute},
@@ -97,19 +97,24 @@ func TestHTTPAndGRPCEndToEnd(t *testing.T) {
 	if status := postJSON(t, baseURL+"/api/v1/me", "Bearer "+token, "", `{}`); status != http.StatusOK {
 		t.Fatalf("JWT status = %d", status)
 	}
-	if status := postJSON(t, baseURL+"/api/v1/users/list", "", "", `{"page":1}`); status != http.StatusUnauthorized {
-		t.Fatalf("missing PSK status = %d", status)
+	if status := postRawStatus(t, baseURL+"/api/v1/auth/login", `{}`); status != http.StatusNotFound {
+		t.Fatalf("tenant service must not expose login, status = %d", status)
 	}
-	if status := postJSON(t, baseURL+"/api/v1/users/list", "PSK "+secret, "", `{"page":1}`); status != http.StatusOK {
-		t.Fatalf("PSK status = %d", status)
-	}
-	firstBody, status := postJSONBody(t, baseURL+"/api/v1/users/create", "Bearer "+token, "create-user-0001", `{"name":"Alice","email":"alice@example.com"}`)
+	firstBody, status := postJSONBody(t, baseURL+"/api/v1/tenants/create", "Bearer "+token, "create-tenant-0001", `{"code":"acme","name":"Acme","owner_user_id":"user-1"}`)
 	if status != http.StatusOK {
 		t.Fatalf("create status = %d body=%s", status, firstBody)
 	}
-	secondBody, status := postJSONBody(t, baseURL+"/api/v1/users/create", "Bearer "+token, "create-user-0001", `{"name":"Alice","email":"alice@example.com"}`)
-	if status != http.StatusOK || responseUserID(t, firstBody) != responseUserID(t, secondBody) {
+	tenantID := responseTenantID(t, firstBody)
+	secondBody, status := postJSONBody(t, baseURL+"/api/v1/tenants/create", "Bearer "+token, "create-tenant-0001", `{"code":"acme","name":"Acme","owner_user_id":"user-1"}`)
+	if status != http.StatusOK || responseTenantID(t, secondBody) != tenantID {
 		t.Fatalf("idempotent replay status=%d first=%s second=%s", status, firstBody, secondBody)
+	}
+	getBody := fmt.Sprintf(`{"tenant_id":%q}`, tenantID)
+	if status := postJSON(t, baseURL+"/api/v1/tenants/get", "", "", getBody); status != http.StatusUnauthorized {
+		t.Fatalf("missing PSK status = %d", status)
+	}
+	if status := postJSON(t, baseURL+"/api/v1/tenants/get", "PSK "+secret, "", getBody); status != http.StatusOK {
+		t.Fatalf("PSK status = %d", status)
 	}
 
 	connection, err := grpc.NewClient(grpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -122,26 +127,28 @@ func TestHTTPAndGRPCEndToEnd(t *testing.T) {
 		t.Fatalf("health = %v, %v", healthResponse, err)
 	}
 	pskCtx := metadata.AppendToOutgoingContext(ctx, "authorization", "PSK "+secret)
-	if _, err := hellov1.NewHelloServiceClient(connection).Ping(pskCtx, &hellov1.PingRequest{Message: "hello"}); err != nil {
-		t.Fatalf("PSK Ping: %v", err)
+	if _, err := tenantv1.NewTenantServiceClient(connection).GetTenant(pskCtx, &tenantv1.GetTenantRequest{TenantId: tenantID}); err != nil {
+		t.Fatalf("PSK GetTenant: %v", err)
 	}
 	jwtCtx := metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token)
-	if _, err := hellov1.NewUserServiceClient(connection).ListUsers(jwtCtx, &hellov1.ListUsersRequest{Page: 1}); err != nil {
-		t.Fatalf("JWT ListUsers: %v", err)
+	if _, err := tenantv1.NewTenantServiceClient(connection).ListUserTenants(jwtCtx, &tenantv1.ListUserTenantsRequest{UserId: "user-1"}); err != nil {
+		t.Fatalf("JWT ListUserTenants: %v", err)
 	}
 }
 
-func responseUserID(t *testing.T, data []byte) string {
+func responseTenantID(t *testing.T, data []byte) string {
 	t.Helper()
 	var response struct {
 		Body struct {
-			ID string `json:"id"`
+			Tenant struct {
+				ID string `json:"id"`
+			} `json:"tenant"`
 		} `json:"body"`
 	}
 	if err := json.Unmarshal(data, &response); err != nil {
 		t.Fatal(err)
 	}
-	return response.Body.ID
+	return response.Body.Tenant.ID
 }
 
 func freeAddress(t *testing.T) string {
@@ -161,6 +168,21 @@ func postJSON(t *testing.T, target, authorization, key, body string) int {
 	t.Helper()
 	_, status := postJSONBody(t, target, authorization, key, body)
 	return status
+}
+
+func postRawStatus(t *testing.T, target, body string) int {
+	t.Helper()
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodPost, target, bytes.NewBufferString(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	return response.StatusCode
 }
 func postJSONBody(t *testing.T, target, authorization, key, body string) ([]byte, int) {
 	t.Helper()
@@ -190,5 +212,3 @@ func postJSONBody(t *testing.T, target, authorization, key, body string) ([]byte
 	}
 	return data, response.StatusCode
 }
-
-var _ = fmt.Sprintf

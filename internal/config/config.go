@@ -32,6 +32,7 @@ type Config struct {
 	User          User          `mapstructure:"user"`
 	Idempotency   Idempotency   `mapstructure:"idempotency"`
 	Outbound      Outbound      `mapstructure:"outbound"`
+	EventBus      EventBus      `mapstructure:"event_bus"`
 }
 
 type Runtime struct {
@@ -143,6 +144,9 @@ type JWT struct {
 	TTL    time.Duration `mapstructure:"ttl"`
 }
 type Auth struct {
+	JWKSURL         string   `mapstructure:"jwks_url"`
+	Issuer          string   `mapstructure:"issuer"`
+	Audience        string   `mapstructure:"audience"`
 	ClientID        string   `mapstructure:"client_id"`
 	ClientSecret    string   `mapstructure:"client_secret"`
 	SkipHTTPPaths   []string `mapstructure:"skip_http_paths"`
@@ -179,6 +183,20 @@ type Idempotency struct {
 	ProcessingTTL time.Duration `mapstructure:"processing_ttl"`
 	ResultTTL     time.Duration `mapstructure:"result_ttl"`
 	FailureTTL    time.Duration `mapstructure:"failure_ttl"`
+}
+type EventBus struct {
+	Enabled            bool          `mapstructure:"enabled"`
+	URLs               []string      `mapstructure:"urls"`
+	StreamName         string        `mapstructure:"stream_name"`
+	Storage            string        `mapstructure:"storage"`
+	MaxAge             time.Duration `mapstructure:"max_age"`
+	DuplicateWindow    time.Duration `mapstructure:"duplicate_window"`
+	ConnectTimeout     time.Duration `mapstructure:"connect_timeout"`
+	PublishTimeout     time.Duration `mapstructure:"publish_timeout"`
+	DispatchInterval   time.Duration `mapstructure:"dispatch_interval"`
+	DispatchBatchSize  int           `mapstructure:"dispatch_batch_size"`
+	DispatchLease      time.Duration `mapstructure:"dispatch_lease"`
+	DispatchRetryDelay time.Duration `mapstructure:"dispatch_retry_delay"`
 }
 type Outbound struct {
 	HTTP map[string]HTTPUpstream `mapstructure:"http"`
@@ -354,7 +372,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("jwt.ttl", "2h")
 	v.SetDefault("auth.client_id", "")
 	v.SetDefault("auth.client_secret", "")
-	v.SetDefault("auth.skip_http_paths", []string{"/api/v1/auth/login", "/api/v1/version"})
+	v.SetDefault("auth.jwks_url", "")
+	v.SetDefault("auth.issuer", "identity-service")
+	v.SetDefault("auth.audience", "tenant-service")
+	v.SetDefault("auth.skip_http_paths", []string{"/api/v1/version"})
 	v.SetDefault("auth.skip_grpc_methods", []string{"/grpc.health.v1.Health/*"})
 	v.SetDefault("auth.psk.enabled", false)
 	v.SetDefault("auth.psk.key", "")
@@ -375,6 +396,18 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("idempotency.processing_ttl", "30s")
 	v.SetDefault("idempotency.result_ttl", "24h")
 	v.SetDefault("idempotency.failure_ttl", "5m")
+	v.SetDefault("event_bus.enabled", false)
+	v.SetDefault("event_bus.urls", []string{"nats://127.0.0.1:4222"})
+	v.SetDefault("event_bus.stream_name", "PLATFORM_EVENTS")
+	v.SetDefault("event_bus.storage", "file")
+	v.SetDefault("event_bus.max_age", "168h")
+	v.SetDefault("event_bus.duplicate_window", "10m")
+	v.SetDefault("event_bus.connect_timeout", "5s")
+	v.SetDefault("event_bus.publish_timeout", "5s")
+	v.SetDefault("event_bus.dispatch_interval", "1s")
+	v.SetDefault("event_bus.dispatch_batch_size", 100)
+	v.SetDefault("event_bus.dispatch_lease", "30s")
+	v.SetDefault("event_bus.dispatch_retry_delay", "5s")
 	v.SetDefault("outbound.http", map[string]any{})
 	v.SetDefault("outbound.grpc", map[string]any{})
 }
@@ -438,6 +471,9 @@ func (c Config) Validate() error {
 	if c.App.Env == "production" && c.Swagger.Enabled && !c.Swagger.RequireAuth {
 		return errors.New("swagger.require_auth must be enabled in production")
 	}
+	if c.App.Env == "production" && (c.Auth.JWKSURL == "" || c.Auth.Issuer == "" || c.Auth.Audience == "") {
+		return errors.New("production auth requires jwks_url, issuer, and audience")
+	}
 	if (c.Auth.ClientID != "" || c.Auth.ClientSecret != "") && len(c.JWT.Secret) < 32 {
 		return errors.New("jwt.secret must contain at least 32 bytes when auth is enabled")
 	}
@@ -481,6 +517,9 @@ func (c Config) Validate() error {
 	}
 	if c.Idempotency.Enabled && (!c.Redis.Enabled || c.Idempotency.ProcessingTTL <= 0 || c.Idempotency.ResultTTL <= 0 || c.Idempotency.FailureTTL <= 0) {
 		return errors.New("enabled idempotency requires redis and positive TTL values")
+	}
+	if c.EventBus.Enabled && (!c.Database.Enabled || len(c.EventBus.URLs) == 0 || c.EventBus.StreamName == "" || (c.EventBus.Storage != "file" && c.EventBus.Storage != "memory") || c.EventBus.DispatchInterval <= 0 || c.EventBus.DispatchBatchSize <= 0 || c.EventBus.DispatchLease <= 0 || c.EventBus.DispatchRetryDelay <= 0) {
+		return errors.New("enabled event_bus requires database, URLs, stream, valid storage, and positive dispatcher settings")
 	}
 	for name, upstream := range c.Outbound.HTTP {
 		if upstream.BaseURL == "" || upstream.Timeout <= 0 {

@@ -58,14 +58,30 @@ func NewServer(lc fx.Lifecycle, cfg config.Config, handler *Handler, authService
 		subject, _ := value.(string)
 		return subject
 	}, logger))
-	api.POST("/auth/login", RateLimit(limiter, cfg.RateLimit.Login, "login", func(c *gin.Context) string { return c.ClientIP() }, logger), handler.Login)
 	api.POST("/version", handler.Version)
 	api.POST("/me", handler.Me)
-	api.POST("/users/create", handler.CreateUser)
-	api.POST("/users/get", handler.GetUser)
-	api.POST("/users/list", handler.ListUsers)
-	api.POST("/users/update", handler.UpdateUser)
-	api.POST("/users/delete", handler.DeleteUser)
+	api.POST("/tenants/create", handler.CreateTenant)
+	api.POST("/tenants/get", handler.GetTenant)
+	api.POST("/tenants/update", handler.UpdateTenant)
+	api.POST("/tenants/list-by-user", handler.ListUserTenants)
+	api.POST("/memberships/add", handler.AddMembership)
+	api.POST("/memberships/update", handler.UpdateMembership)
+	api.POST("/organization-units/create", handler.CreateOrganizationUnit)
+	api.POST("/organization-units/get", handler.GetOrganizationUnit)
+	api.POST("/organization-units/update", handler.UpdateOrganizationUnit)
+	api.POST("/organization-units/list", handler.ListOrganizationUnits)
+	api.POST("/invitations/create", handler.CreateInvitation)
+	api.POST("/invitations/accept", handler.AcceptInvitation)
+	api.POST("/invitations/revoke", handler.RevokeInvitation)
+	api.POST("/invitations/list", handler.ListInvitations)
+	api.POST("/groups/create", handler.CreateGroup)
+	api.POST("/groups/update", handler.UpdateGroup)
+	api.POST("/groups/member-add", handler.AddGroupMember)
+	api.POST("/groups/member-remove", handler.RemoveGroupMember)
+	api.POST("/groups/list", handler.ListGroups)
+	api.POST("/quotas/get", handler.GetQuota)
+	api.POST("/quotas/set", handler.SetQuota)
+	api.POST("/quotas/consume", handler.ConsumeQuota)
 	server := &http.Server{Addr: cfg.HTTP.Address, Handler: router, ReadTimeout: cfg.HTTP.ReadTimeout, WriteTimeout: cfg.HTTP.WriteTimeout, IdleTimeout: cfg.HTTP.IdleTimeout}
 	var listener net.Listener
 	lc.Append(fx.Hook{OnStart: func(context.Context) error {
@@ -108,4 +124,4 @@ func registerPprof(group *gin.RouterGroup) {
 	}
 }
 
-var Module = fx.Module("http", fx.Provide(auth.New, health.New, ratelimit.New, NewHandler, NewServer), fx.Invoke(func(*http.Server) {}))
+var Module = fx.Module("http", fx.Provide(auth.NewRuntime, health.New, ratelimit.New, NewHandler, NewServer), fx.Invoke(func(*http.Server) {}))

@@ -16,9 +16,9 @@ import (
 	"github.com/lihongjie0209/tenant-service/internal/observability"
 	"github.com/lihongjie0209/tenant-service/internal/outbound"
 	"github.com/lihongjie0209/tenant-service/internal/scheduler"
+	"github.com/lihongjie0209/tenant-service/internal/tenant"
 	grpctransport "github.com/lihongjie0209/tenant-service/internal/transport/grpc"
 	httptransport "github.com/lihongjie0209/tenant-service/internal/transport/http"
-	"github.com/lihongjie0209/tenant-service/internal/user"
 	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
@@ -35,7 +35,8 @@ func New(cfg config.Config) *fx.App {
 		DatabaseModule,
 		CacheModule,
 		fx.Provide(idempotency.New),
-		user.Module,
+		tenant.Module,
+		EventBusModule,
 		fx.Provide(observability.NewMetrics),
 		outbound.Module,
 		scheduler.Module,
@@ -105,7 +106,7 @@ func newLocker(client *redis.Client) *cache.Locker {
 	return cache.NewLocker(client)
 }
 
-var DatabaseModule = fx.Module("database", fx.Provide(newDatabase), fx.Invoke(func(db *sqlx.DB, logger *slog.Logger) {
+var DatabaseModule = fx.Module("database", fx.Provide(newDatabase, database.NewTransactor), fx.Invoke(func(db *sqlx.DB, logger *slog.Logger) {
 	if db == nil {
 		logger.Warn("database is disabled")
 	}

@@ -1,6 +1,6 @@
-# Go Web API Template
+# Tenant Service
 
-Production-ready Go microservice tenant-service.
+Tenant、组织、成员、邀请、用户组与配额的事实来源，同时提供前端 POST+JSON API、内部 gRPC API 和可靠领域事件。
 
 
 ## Quick start
@@ -139,6 +139,12 @@ Redsync does not start a hidden renewal goroutine. Long-running jobs must call `
 - `GET /metrics`: Prometheus metrics when enabled
 - `POST /api/v1/version`: version, commit, build time, start time and uptime
 - `POST /api/v1/users/create|get|list|update|delete`: JWT-protected CRUD example
+- `POST /api/v1/tenants/*`: 租户创建、查询、更新和用户租户列表
+- `POST /api/v1/memberships/*`: 成员加入与乐观锁更新
+- `POST /api/v1/organization-units/*`: 组织树维护与查询
+- `POST /api/v1/invitations/*`: 邀请创建、当前用户接受、撤销和分页列表
+- `POST /api/v1/groups/*`: 成员组维护和组成员增删
+- `POST /api/v1/quotas/*`: 配额设置、查询和原子消费
 - `GET /swagger/index.html`: generated Swagger UI when enabled
 
 Every request accepts or generates `X-Request-ID`; it is returned in the response header and JSON envelope and correlated with OpenTelemetry trace/span IDs in logs. Request deadlines are propagated through `Request.Context`, so context-aware SQL and Redis calls stop after client cancellation or timeout.
@@ -176,6 +182,7 @@ The gRPC server listens independently on `127.0.0.1:9090` and is managed by the 
 - `hello.v1.HelloService/Ping`: authenticated example RPC
 - `hello.v1.UserService/*`: CRUD RPCs backed by the same service as HTTP
 - `grpc.health.v1.Health/Check`: unauthenticated standard readiness check
+- `platform.tenant.v1.TenantService/*`: 与 HTTP 同源的租户、组织、邀请、组和配额内部接口
 - JWT is passed as `authorization: Bearer <token>` metadata
 - `x-request-id` and W3C trace context propagate across HTTP-to-gRPC calls
 - reflection is enabled for development and forbidden in production
@@ -217,6 +224,19 @@ Every service must set its own `APP_MIGRATION_TABLE`, for example `orders_servic
 PostgreSQL and Kingbase services may also share one database while using independent schemas. Set `APP_DATABASE_SCHEMA` (or `--database-schema` when generating) and the application connection will enforce that schema as `search_path`; startup migrations use the same schema, including their service-specific history table. Set `APP_MIGRATION_CREATE_SCHEMA=true` only when the runtime role is allowed to create schemas (enabled in Compose); production defaults to false so the platform/DBA can provision the schema with least privilege. MySQL ignores the schema setting and uses the selected database name.
 
 The Compose and Kubernetes examples enable startup migration for the primary PostgreSQL database. The standalone migration command and Kubernetes migration Job remain available for controlled release pipelines or maintenance operations.
+
+## Domain events
+
+Tenant、Membership、OrganizationUnit、Invitation、Group 和 Quota 的写操作在同一数据库事务中写入 `tenant_outbox_events`。后台 dispatcher 使用共享 `platform-go/outbox` 发布到 NATS JetStream；消息持久化、显式确认、消息 ID 去重和重投由共享事件总线实现。服务不会在数据库事务内直接发布网络消息。
+
+主要 subject：
+
+- `platform.tenant.tenant.created.v1`
+- `platform.tenant.membership.changed.v1`
+- `platform.tenant.organization-unit.changed.v1`
+- `platform.tenant.invitation.changed.v1`
+- `platform.tenant.group.changed.v1`
+- `platform.tenant.quota.changed.v1`
 
 Use a `mysql://` URL for MySQL and `postgres://` for PostgreSQL/Kingbase. The sample schema and indexes still require review against real data volume and access patterns.
 

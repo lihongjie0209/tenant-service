@@ -12,8 +12,13 @@
     },
     "basePath": "/",
     "paths": {
-        "/api/v1/auth/login": {
+        "/api/v1/groups/create": {
             "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
                 "consumes": [
                     "application/json"
                 ],
@@ -21,17 +26,17 @@
                     "application/json"
                 ],
                 "tags": [
-                    "authentication"
+                    "groups"
                 ],
-                "summary": "Issue a JWT access token",
+                "summary": "Create a tenant member group",
                 "parameters": [
                     {
-                        "description": "Client credentials",
+                        "description": "Group",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httptransport.LoginRequest"
+                            "$ref": "#/definitions/httptransport.CreateGroupRequest"
                         }
                     }
                 ],
@@ -47,29 +52,351 @@
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/httptransport.LoginResponseBody"
+                                            "$ref": "#/definitions/tenant.Group"
                                         }
                                     }
                                 }
                             ]
                         }
-                    },
-                    "400": {
-                        "description": "Code 10001: invalid request",
+                    }
+                }
+            }
+        },
+        "/api/v1/groups/list": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "List tenant member groups",
+                "parameters": [
+                    {
+                        "description": "Tenant",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.ListGroupsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/httptransport.Response"
                         }
-                    },
-                    "401": {
-                        "description": "Code 20001: invalid credentials",
+                    }
+                }
+            }
+        },
+        "/api/v1/groups/member-add": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Add a membership to a group",
+                "parameters": [
+                    {
+                        "description": "Group membership",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.GroupMemberRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/httptransport.Response"
                         }
-                    },
-                    "429": {
-                        "description": "Code 10029: rate limited",
+                    }
+                }
+            }
+        },
+        "/api/v1/groups/member-remove": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Remove a membership from a group using optimistic locking",
+                "parameters": [
+                    {
+                        "description": "Group membership and current version",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.RemoveGroupMemberRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/httptransport.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/groups/update": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Update a member group using optimistic locking",
+                "parameters": [
+                    {
+                        "description": "Group and current version",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.UpdateGroupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/tenant.Group"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/invitations/accept": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "invitations"
+                ],
+                "summary": "Accept an invitation as the authenticated subject",
+                "parameters": [
+                    {
+                        "description": "Invitation token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.AcceptInvitationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/invitations/create": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "invitations"
+                ],
+                "summary": "Create a tenant invitation",
+                "parameters": [
+                    {
+                        "description": "Invitation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.CreateInvitationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/invitations/list": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "invitations"
+                ],
+                "summary": "List tenant invitations",
+                "parameters": [
+                    {
+                        "description": "Tenant and pagination",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.ListInvitationsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/tenant.InvitationPage"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/invitations/revoke": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "invitations"
+                ],
+                "summary": "Revoke a pending invitation using optimistic locking",
+                "parameters": [
+                    {
+                        "description": "Invitation and current version",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.RevokeInvitationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/tenant.Invitation"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -117,7 +444,7 @@
                 }
             }
         },
-        "/api/v1/users/create": {
+        "/api/v1/quotas/consume": {
             "post": {
                 "security": [
                     {
@@ -131,17 +458,55 @@
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "quotas"
                 ],
-                "summary": "Create a user",
+                "summary": "Atomically consume tenant quota",
                 "parameters": [
                     {
-                        "description": "User",
+                        "description": "Quota consumption",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httptransport.CreateUserRequest"
+                            "$ref": "#/definitions/httptransport.ConsumeQuotaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/quotas/get": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "quotas"
+                ],
+                "summary": "Get a tenant quota",
+                "parameters": [
+                    {
+                        "description": "Tenant quota key",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.GetQuotaRequest"
                         }
                     }
                 ],
@@ -157,29 +522,17 @@
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/user.User"
+                                            "$ref": "#/definitions/tenant.Quota"
                                         }
                                     }
                                 }
                             ]
                         }
-                    },
-                    "400": {
-                        "description": "Code 10001: invalid request",
-                        "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "Code 30009: email already exists",
-                        "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
-                        }
                     }
                 }
             }
         },
-        "/api/v1/users/delete": {
+        "/api/v1/quotas/set": {
             "post": {
                 "security": [
                     {
@@ -193,55 +546,17 @@
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "quotas"
                 ],
-                "summary": "Delete a user using optimistic locking",
+                "summary": "Create or update a tenant quota using optimistic locking",
                 "parameters": [
                     {
-                        "description": "User ID and current version",
+                        "description": "Quota and current version; version 0 creates",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httptransport.DeleteUserRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/users/get": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Get a user",
-                "parameters": [
-                    {
-                        "description": "User ID",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/httptransport.GetUserRequest"
+                            "$ref": "#/definitions/httptransport.SetQuotaRequest"
                         }
                     }
                 ],
@@ -257,123 +572,11 @@
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/user.User"
+                                            "$ref": "#/definitions/tenant.Quota"
                                         }
                                     }
                                 }
                             ]
-                        }
-                    },
-                    "404": {
-                        "description": "Code 10004: user not found",
-                        "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/users/list": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "List users",
-                "parameters": [
-                    {
-                        "description": "Pagination",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/httptransport.ListUsersRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/httptransport.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "body": {
-                                            "$ref": "#/definitions/user.Page"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/users/update": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Update a user using optimistic locking",
-                "parameters": [
-                    {
-                        "description": "User and current version",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/httptransport.UpdateUserRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/httptransport.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "body": {
-                                            "$ref": "#/definitions/user.User"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "409": {
-                        "description": "Code 30009: version conflict",
-                        "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
                         }
                     }
                 }
@@ -537,88 +740,128 @@
                 }
             }
         },
-        "httptransport.CreateUserRequest": {
+        "httptransport.AcceptInvitationRequest": {
+            "type": "object",
+            "required": [
+                "token"
+            ],
+            "properties": {
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "httptransport.ConsumeQuotaRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "key",
+                "tenant_id"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httptransport.CreateGroupRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "name",
+                "tenant_id"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httptransport.CreateInvitationRequest": {
             "type": "object",
             "required": [
                 "email",
-                "name"
+                "expires_in_seconds",
+                "tenant_id"
             ],
             "properties": {
                 "email": {
-                    "type": "string",
-                    "example": "alice@example.com"
-                },
-                "name": {
-                    "type": "string",
-                    "example": "Alice"
-                }
-            }
-        },
-        "httptransport.DeleteUserRequest": {
-            "type": "object",
-            "required": [
-                "id",
-                "version"
-            ],
-            "properties": {
-                "id": {
-                    "type": "string",
-                    "format": "uuid"
-                },
-                "version": {
-                    "type": "integer"
-                }
-            }
-        },
-        "httptransport.GetUserRequest": {
-            "type": "object",
-            "required": [
-                "id"
-            ],
-            "properties": {
-                "id": {
-                    "type": "string",
-                    "format": "uuid"
-                }
-            }
-        },
-        "httptransport.ListUsersRequest": {
-            "type": "object",
-            "properties": {
-                "page": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "page_size": {
-                    "type": "integer",
-                    "example": 20
-                }
-            }
-        },
-        "httptransport.LoginRequest": {
-            "type": "object",
-            "required": [
-                "client_id",
-                "client_secret"
-            ],
-            "properties": {
-                "client_id": {
-                    "type": "string",
-                    "example": "local-client"
-                },
-                "client_secret": {
-                    "type": "string",
-                    "example": "local-secret"
-                }
-            }
-        },
-        "httptransport.LoginResponseBody": {
-            "type": "object",
-            "properties": {
-                "access_token": {
                     "type": "string"
                 },
-                "token_type": {
+                "expires_in_seconds": {
+                    "type": "integer"
+                },
+                "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httptransport.GetQuotaRequest": {
+            "type": "object",
+            "required": [
+                "key",
+                "tenant_id"
+            ],
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httptransport.GroupMemberRequest": {
+            "type": "object",
+            "required": [
+                "group_id",
+                "membership_id"
+            ],
+            "properties": {
+                "group_id": {
+                    "type": "string"
+                },
+                "membership_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httptransport.ListGroupsRequest": {
+            "type": "object",
+            "required": [
+                "tenant_id"
+            ],
+            "properties": {
+                "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httptransport.ListInvitationsRequest": {
+            "type": "object",
+            "required": [
+                "tenant_id"
+            ],
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "tenant_id": {
                     "type": "string"
                 }
             }
@@ -628,6 +871,25 @@
             "properties": {
                 "subject": {
                     "type": "string"
+                }
+            }
+        },
+        "httptransport.RemoveGroupMemberRequest": {
+            "type": "object",
+            "required": [
+                "group_id",
+                "membership_id",
+                "version"
+            ],
+            "properties": {
+                "group_id": {
+                    "type": "string"
+                },
+                "membership_id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
                 }
             }
         },
@@ -646,23 +908,14 @@
                 }
             }
         },
-        "httptransport.UpdateUserRequest": {
+        "httptransport.RevokeInvitationRequest": {
             "type": "object",
             "required": [
-                "email",
-                "id",
-                "name",
+                "invitation_id",
                 "version"
             ],
             "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string",
-                    "format": "uuid"
-                },
-                "name": {
+                "invitation_id": {
                     "type": "string"
                 },
                 "version": {
@@ -670,9 +923,134 @@
                 }
             }
         },
-        "user.Page": {
+        "httptransport.SetQuotaRequest": {
+            "type": "object",
+            "required": [
+                "key",
+                "tenant_id"
+            ],
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "limit": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "httptransport.UpdateGroupRequest": {
+            "type": "object",
+            "required": [
+                "group_id",
+                "name",
+                "status",
+                "version"
+            ],
+            "properties": {
+                "group_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "tenant.Group": {
             "type": "object",
             "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "tenant.Invitation": {
+            "type": "object",
+            "properties": {
+                "accepted_by_user_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "tenant.InvitationPage": {
+            "type": "object",
+            "properties": {
+                "invitations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/tenant.Invitation"
+                    }
+                },
                 "page": {
                     "type": "integer"
                 },
@@ -681,32 +1059,35 @@
                 },
                 "total": {
                     "type": "integer"
-                },
-                "users": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/user.User"
-                    }
                 }
             }
         },
-        "user.User": {
+        "tenant.Quota": {
             "type": "object",
             "properties": {
                 "created_at": {
                     "type": "string"
                 },
-                "email": {
+                "created_by": {
                     "type": "string"
                 },
-                "id": {
+                "key": {
                     "type": "string"
                 },
-                "name": {
+                "limit": {
+                    "type": "integer"
+                },
+                "tenant_id": {
                     "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                },
+                "used": {
+                    "type": "integer"
                 },
                 "version": {
                     "type": "integer"

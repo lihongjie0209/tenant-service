@@ -12,6 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lihongjie0209/microservice-platform-go/principal"
+	commonv1 "github.com/lihongjie0209/platform-protos/gen/go/platform/common/v1"
+	tenantv1 "github.com/lihongjie0209/platform-protos/gen/go/platform/tenant/v1"
 	hellov1 "github.com/lihongjie0209/tenant-service/gen/hello/v1"
 	"github.com/lihongjie0209/tenant-service/internal/apperror"
 	"github.com/lihongjie0209/tenant-service/internal/auth"
@@ -22,7 +25,8 @@ import (
 	"github.com/lihongjie0209/tenant-service/internal/idempotency"
 	"github.com/lihongjie0209/tenant-service/internal/observability"
 	"github.com/lihongjie0209/tenant-service/internal/requestid"
-	"github.com/lihongjie0209/tenant-service/internal/user"
+	tenantdomain "github.com/lihongjie0209/tenant-service/internal/tenant"
+
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
@@ -33,6 +37,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Server struct {
@@ -41,7 +46,7 @@ type Server struct {
 	logger  *slog.Logger
 }
 
-func NewServer(lc fx.Lifecycle, cfg config.Config, authService *auth.Service, healthService *apphealth.Service, userService *user.Service, metrics *observability.Metrics, logger *slog.Logger) (*Server, error) {
+func NewServer(lc fx.Lifecycle, cfg config.Config, authService *auth.Service, healthService *apphealth.Service, tenantService *tenantdomain.Service, metrics *observability.Metrics, logger *slog.Logger) (*Server, error) {
 	options := []grpc.ServerOption{
 		grpc.MaxRecvMsgSize(cfg.GRPC.MaxReceiveBytes),
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
@@ -57,7 +62,7 @@ func NewServer(lc fx.Lifecycle, cfg config.Config, authService *auth.Service, he
 	}
 	grpcServer := grpc.NewServer(options...)
 	hellov1.RegisterHelloServiceServer(grpcServer, &helloServer{})
-	hellov1.RegisterUserServiceServer(grpcServer, &userServer{service: userService})
+	tenantv1.RegisterTenantServiceServer(grpcServer, &tenantServer{service: tenantService})
 	grpc_health_v1.RegisterHealthServer(grpcServer, &healthServer{health: healthService})
 	if cfg.GRPC.ReflectionEnabled {
 		reflection.Register(grpcServer)
@@ -65,6 +70,242 @@ func NewServer(lc fx.Lifecycle, cfg config.Config, authService *auth.Service, he
 	server := &Server{server: grpcServer, address: cfg.GRPC.Address, logger: logger}
 	lc.Append(fx.Hook{OnStart: server.start(cfg.GRPC.Enabled), OnStop: server.stop})
 	return server, nil
+}
+
+type tenantServer struct {
+	tenantv1.UnimplementedTenantServiceServer
+	service *tenantdomain.Service
+}
+
+func (s *tenantServer) CreateTenant(ctx context.Context, request *tenantv1.CreateTenantRequest) (*tenantv1.CreateTenantResponse, error) {
+	created, owner, err := s.service.Create(ctx, request.GetCode(), request.GetName(), request.GetOwnerUserId())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.CreateTenantResponse{Tenant: toProtoTenant(created), OwnerMembership: toProtoMembership(owner)}, nil
+}
+func (s *tenantServer) GetTenant(ctx context.Context, request *tenantv1.GetTenantRequest) (*tenantv1.GetTenantResponse, error) {
+	value, err := s.service.Get(ctx, request.GetTenantId())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.GetTenantResponse{Tenant: toProtoTenant(value)}, nil
+}
+func (s *tenantServer) UpdateTenant(ctx context.Context, request *tenantv1.UpdateTenantRequest) (*tenantv1.UpdateTenantResponse, error) {
+	value, err := s.service.Update(ctx, request.GetTenantId(), request.GetName(), tenantStatusString(request.GetStatus()), request.GetExpectedVersion())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.UpdateTenantResponse{Tenant: toProtoTenant(value)}, nil
+}
+func (s *tenantServer) AddMembership(ctx context.Context, request *tenantv1.AddMembershipRequest) (*tenantv1.AddMembershipResponse, error) {
+	value, err := s.service.AddMembership(ctx, request.GetTenantId(), request.GetUserId(), request.GetPrimaryOrganizationUnitId())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.AddMembershipResponse{Membership: toProtoMembership(value)}, nil
+}
+func (s *tenantServer) UpdateMembership(ctx context.Context, request *tenantv1.UpdateMembershipRequest) (*tenantv1.UpdateMembershipResponse, error) {
+	value, err := s.service.UpdateMembership(ctx, request.GetMembershipId(), membershipStatusString(request.GetStatus()), request.GetPrimaryOrganizationUnitId(), request.GetExpectedVersion())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.UpdateMembershipResponse{Membership: toProtoMembership(value)}, nil
+}
+func (s *tenantServer) CreateOrganizationUnit(ctx context.Context, request *tenantv1.CreateOrganizationUnitRequest) (*tenantv1.CreateOrganizationUnitResponse, error) {
+	value, err := s.service.CreateOrganizationUnit(ctx, request.GetTenantId(), request.GetParentId(), request.GetCode(), request.GetName())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.CreateOrganizationUnitResponse{OrganizationUnit: toProtoOrganizationUnit(value)}, nil
+}
+func (s *tenantServer) GetOrganizationUnit(ctx context.Context, request *tenantv1.GetOrganizationUnitRequest) (*tenantv1.GetOrganizationUnitResponse, error) {
+	value, err := s.service.GetOrganizationUnit(ctx, request.GetOrganizationUnitId())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.GetOrganizationUnitResponse{OrganizationUnit: toProtoOrganizationUnit(value)}, nil
+}
+func (s *tenantServer) UpdateOrganizationUnit(ctx context.Context, request *tenantv1.UpdateOrganizationUnitRequest) (*tenantv1.UpdateOrganizationUnitResponse, error) {
+	value, err := s.service.UpdateOrganizationUnit(ctx, request.GetOrganizationUnitId(), request.GetParentId(), request.GetName(), request.GetStatus(), request.GetExpectedVersion())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.UpdateOrganizationUnitResponse{OrganizationUnit: toProtoOrganizationUnit(value)}, nil
+}
+func (s *tenantServer) ListOrganizationUnits(ctx context.Context, request *tenantv1.ListOrganizationUnitsRequest) (*tenantv1.ListOrganizationUnitsResponse, error) {
+	values, err := s.service.ListOrganizationUnits(ctx, request.GetTenantId())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	items := make([]*tenantv1.OrganizationUnit, 0, len(values))
+	for _, value := range values {
+		items = append(items, toProtoOrganizationUnit(value))
+	}
+	return &tenantv1.ListOrganizationUnitsResponse{OrganizationUnits: items}, nil
+}
+func (s *tenantServer) CreateInvitation(ctx context.Context, request *tenantv1.CreateInvitationRequest) (*tenantv1.CreateInvitationResponse, error) {
+	value, token, err := s.service.CreateInvitation(ctx, request.GetTenantId(), request.GetEmail(), time.Duration(request.GetExpiresInSeconds())*time.Second)
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.CreateInvitationResponse{Invitation: toProtoInvitation(value), Token: token}, nil
+}
+func (s *tenantServer) AcceptInvitation(ctx context.Context, request *tenantv1.AcceptInvitationRequest) (*tenantv1.AcceptInvitationResponse, error) {
+	value, membership, err := s.service.AcceptInvitation(ctx, request.GetToken(), request.GetUserId())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.AcceptInvitationResponse{Invitation: toProtoInvitation(value), Membership: toProtoMembership(membership)}, nil
+}
+func (s *tenantServer) RevokeInvitation(ctx context.Context, request *tenantv1.RevokeInvitationRequest) (*tenantv1.RevokeInvitationResponse, error) {
+	value, err := s.service.RevokeInvitation(ctx, request.GetInvitationId(), request.GetExpectedVersion())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.RevokeInvitationResponse{Invitation: toProtoInvitation(value)}, nil
+}
+func (s *tenantServer) ListInvitations(ctx context.Context, request *tenantv1.ListInvitationsRequest) (*tenantv1.ListInvitationsResponse, error) {
+	pageNumber, pageSize := 0, 0
+	if request.GetPage() != nil {
+		pageNumber, pageSize = int(request.GetPage().GetPage()), int(request.GetPage().GetPageSize())
+	}
+	page, err := s.service.ListInvitations(ctx, request.GetTenantId(), pageNumber, pageSize)
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	items := make([]*tenantv1.Invitation, 0, len(page.Invitations))
+	for _, value := range page.Invitations {
+		items = append(items, toProtoInvitation(value))
+	}
+	return &tenantv1.ListInvitationsResponse{Invitations: items, Page: &commonv1.PageResult{Total: uint64(page.Total), Page: uint32(page.Page), PageSize: uint32(page.PageSize)}}, nil
+}
+func (s *tenantServer) CreateGroup(ctx context.Context, request *tenantv1.CreateGroupRequest) (*tenantv1.CreateGroupResponse, error) {
+	value, err := s.service.CreateGroup(ctx, request.GetTenantId(), request.GetCode(), request.GetName())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.CreateGroupResponse{Group: toProtoGroup(value)}, nil
+}
+func (s *tenantServer) UpdateGroup(ctx context.Context, request *tenantv1.UpdateGroupRequest) (*tenantv1.UpdateGroupResponse, error) {
+	value, err := s.service.UpdateGroup(ctx, request.GetGroupId(), request.GetName(), request.GetStatus(), request.GetExpectedVersion())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.UpdateGroupResponse{Group: toProtoGroup(value)}, nil
+}
+func (s *tenantServer) AddGroupMember(ctx context.Context, request *tenantv1.AddGroupMemberRequest) (*tenantv1.AddGroupMemberResponse, error) {
+	if err := s.service.AddGroupMember(ctx, request.GetGroupId(), request.GetMembershipId()); err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.AddGroupMemberResponse{Added: true}, nil
+}
+func (s *tenantServer) RemoveGroupMember(ctx context.Context, request *tenantv1.RemoveGroupMemberRequest) (*tenantv1.RemoveGroupMemberResponse, error) {
+	if err := s.service.RemoveGroupMember(ctx, request.GetGroupId(), request.GetMembershipId(), request.GetExpectedVersion()); err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.RemoveGroupMemberResponse{Removed: true}, nil
+}
+func (s *tenantServer) ListGroups(ctx context.Context, request *tenantv1.ListGroupsRequest) (*tenantv1.ListGroupsResponse, error) {
+	values, err := s.service.ListGroups(ctx, request.GetTenantId())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	items := make([]*tenantv1.Group, 0, len(values))
+	for _, value := range values {
+		items = append(items, toProtoGroup(value))
+	}
+	return &tenantv1.ListGroupsResponse{Groups: items}, nil
+}
+func (s *tenantServer) GetQuota(ctx context.Context, request *tenantv1.GetQuotaRequest) (*tenantv1.GetQuotaResponse, error) {
+	value, err := s.service.GetQuota(ctx, request.GetTenantId(), request.GetKey())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.GetQuotaResponse{Quota: toProtoQuota(value)}, nil
+}
+func (s *tenantServer) SetQuota(ctx context.Context, request *tenantv1.SetQuotaRequest) (*tenantv1.SetQuotaResponse, error) {
+	value, err := s.service.SetQuota(ctx, request.GetTenantId(), request.GetKey(), request.GetLimit(), request.GetExpectedVersion())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.SetQuotaResponse{Quota: toProtoQuota(value)}, nil
+}
+func (s *tenantServer) ConsumeQuota(ctx context.Context, request *tenantv1.ConsumeQuotaRequest) (*tenantv1.ConsumeQuotaResponse, error) {
+	value, allowed, err := s.service.ConsumeQuota(ctx, request.GetTenantId(), request.GetKey(), request.GetAmount())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.ConsumeQuotaResponse{Quota: toProtoQuota(value), Allowed: allowed}, nil
+}
+func (s *tenantServer) ValidateMembership(ctx context.Context, request *tenantv1.ValidateMembershipRequest) (*tenantv1.ValidateMembershipResponse, error) {
+	tenantValue, membership, valid := s.service.ValidateMembership(ctx, request.GetUserId(), request.GetTenantId())
+	response := &tenantv1.ValidateMembershipResponse{Valid: valid}
+	if valid {
+		response.Tenant = toProtoTenant(tenantValue)
+		response.Membership = toProtoMembership(membership)
+	}
+	return response, nil
+}
+func (s *tenantServer) GetMembership(ctx context.Context, request *tenantv1.GetMembershipRequest) (*tenantv1.GetMembershipResponse, error) {
+	value, err := s.service.GetMembership(ctx, request.GetMembershipId())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.GetMembershipResponse{Membership: toProtoMembership(value)}, nil
+}
+func (s *tenantServer) ListUserTenants(ctx context.Context, request *tenantv1.ListUserTenantsRequest) (*tenantv1.ListUserTenantsResponse, error) {
+	pageNumber, pageSize := 0, 0
+	if request.GetPage() != nil {
+		pageNumber, pageSize = int(request.GetPage().GetPage()), int(request.GetPage().GetPageSize())
+	}
+	page, err := s.service.ListUserTenants(ctx, request.GetUserId(), pageNumber, pageSize)
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	items := make([]*tenantv1.Tenant, 0, len(page.Tenants))
+	for _, item := range page.Tenants {
+		items = append(items, toProtoTenant(item))
+	}
+	return &tenantv1.ListUserTenantsResponse{Tenants: items, Page: &commonv1.PageResult{Total: uint64(page.Total), Page: uint32(page.Page), PageSize: uint32(page.PageSize)}}, nil
+}
+func (s *tenantServer) ResolveOrganizationScope(ctx context.Context, request *tenantv1.ResolveOrganizationScopeRequest) (*tenantv1.ResolveOrganizationScopeResponse, error) {
+	ids, err := s.service.ResolveOrganizationScope(ctx, request.GetMembershipId())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.ResolveOrganizationScopeResponse{OrganizationUnitIds: ids}, nil
+}
+
+func toProtoTenant(value tenantdomain.Tenant) *tenantv1.Tenant {
+	return &tenantv1.Tenant{Id: value.ID, Code: value.Code, Name: value.Name, Status: tenantStatusProto(value.Status), Version: value.Version, CreatedAt: timestamppb.New(value.CreatedAt), UpdatedAt: timestamppb.New(value.UpdatedAt), CreatedBy: value.CreatedBy, UpdatedBy: value.UpdatedBy}
+}
+func toProtoMembership(value tenantdomain.Membership) *tenantv1.Membership {
+	return &tenantv1.Membership{Id: value.ID, TenantId: value.TenantID, UserId: value.UserID, Status: membershipStatusProto(value.Status), PrimaryOrganizationUnitId: value.PrimaryOrganizationUnitID, JoinedAt: timestamppb.New(value.JoinedAt), Version: value.Version, CreatedAt: timestamppb.New(value.CreatedAt), UpdatedAt: timestamppb.New(value.UpdatedAt), CreatedBy: value.CreatedBy, UpdatedBy: value.UpdatedBy}
+}
+func toProtoOrganizationUnit(value tenantdomain.OrganizationUnit) *tenantv1.OrganizationUnit {
+	return &tenantv1.OrganizationUnit{Id: value.ID, TenantId: value.TenantID, ParentId: value.ParentID, Code: value.Code, Name: value.Name, Path: value.Path, Status: value.Status, Version: value.Version, CreatedAt: timestamppb.New(value.CreatedAt), UpdatedAt: timestamppb.New(value.UpdatedAt), CreatedBy: value.CreatedBy, UpdatedBy: value.UpdatedBy}
+}
+func toProtoInvitation(value tenantdomain.Invitation) *tenantv1.Invitation {
+	return &tenantv1.Invitation{Id: value.ID, TenantId: value.TenantID, Email: value.Email, Status: value.Status, ExpiresAt: timestamppb.New(value.ExpiresAt), AcceptedByUserId: value.AcceptedByUserID, Version: value.Version, CreatedAt: timestamppb.New(value.CreatedAt), UpdatedAt: timestamppb.New(value.UpdatedAt), CreatedBy: value.CreatedBy, UpdatedBy: value.UpdatedBy}
+}
+func toProtoGroup(value tenantdomain.Group) *tenantv1.Group {
+	return &tenantv1.Group{Id: value.ID, TenantId: value.TenantID, Code: value.Code, Name: value.Name, Status: value.Status, Version: value.Version, CreatedAt: timestamppb.New(value.CreatedAt), UpdatedAt: timestamppb.New(value.UpdatedAt), CreatedBy: value.CreatedBy, UpdatedBy: value.UpdatedBy}
+}
+func toProtoQuota(value tenantdomain.Quota) *tenantv1.Quota {
+	return &tenantv1.Quota{TenantId: value.TenantID, Key: value.Key, Limit: value.Limit, Used: value.Used, Version: value.Version, CreatedAt: timestamppb.New(value.CreatedAt), UpdatedAt: timestamppb.New(value.UpdatedAt), CreatedBy: value.CreatedBy, UpdatedBy: value.UpdatedBy}
+}
+func tenantStatusString(value tenantv1.TenantStatus) string {
+	return strings.ToLower(strings.TrimPrefix(value.String(), "TENANT_STATUS_"))
+}
+func membershipStatusString(value tenantv1.MembershipStatus) string {
+	return strings.ToLower(strings.TrimPrefix(value.String(), "MEMBERSHIP_STATUS_"))
+}
+func tenantStatusProto(value string) tenantv1.TenantStatus {
+	return tenantv1.TenantStatus(tenantv1.TenantStatus_value["TENANT_STATUS_"+strings.ToUpper(value)])
+}
+func membershipStatusProto(value string) tenantv1.MembershipStatus {
+	return tenantv1.MembershipStatus(tenantv1.MembershipStatus_value["MEMBERSHIP_STATUS_"+strings.ToUpper(value)])
 }
 
 func (s *Server) start(enabled bool) func(context.Context) error {
@@ -117,50 +358,6 @@ type healthServer struct {
 	health *apphealth.Service
 }
 
-type userServer struct {
-	hellov1.UnimplementedUserServiceServer
-	service *user.Service
-}
-
-func (s *userServer) CreateUser(ctx context.Context, req *hellov1.CreateUserRequest) (*hellov1.User, error) {
-	created, err := s.service.Create(ctx, req.GetName(), req.GetEmail())
-	return userResponse(created, err)
-}
-func (s *userServer) GetUser(ctx context.Context, req *hellov1.GetUserRequest) (*hellov1.User, error) {
-	found, err := s.service.Get(ctx, req.GetId())
-	return userResponse(found, err)
-}
-func (s *userServer) ListUsers(ctx context.Context, req *hellov1.ListUsersRequest) (*hellov1.ListUsersResponse, error) {
-	page, err := s.service.List(ctx, int(req.GetPage()), int(req.GetPageSize()))
-	if err != nil {
-		return nil, grpcError(err)
-	}
-	users := make([]*hellov1.User, 0, len(page.Users))
-	for _, item := range page.Users {
-		users = append(users, toProtoUser(item))
-	}
-	return &hellov1.ListUsersResponse{Users: users, Total: page.Total, Page: int32(page.Page), PageSize: int32(page.PageSize)}, nil
-}
-func (s *userServer) UpdateUser(ctx context.Context, req *hellov1.UpdateUserRequest) (*hellov1.User, error) {
-	updated, err := s.service.Update(ctx, req.GetId(), req.GetName(), req.GetEmail(), req.GetVersion())
-	return userResponse(updated, err)
-}
-func (s *userServer) DeleteUser(ctx context.Context, req *hellov1.DeleteUserRequest) (*hellov1.DeleteUserResponse, error) {
-	if err := s.service.Delete(ctx, req.GetId(), req.GetVersion()); err != nil {
-		return nil, grpcError(err)
-	}
-	return &hellov1.DeleteUserResponse{Deleted: true}, nil
-}
-
-func userResponse(value user.User, err error) (*hellov1.User, error) {
-	if err != nil {
-		return nil, grpcError(err)
-	}
-	return toProtoUser(value), nil
-}
-func toProtoUser(value user.User) *hellov1.User {
-	return &hellov1.User{Id: value.ID, Name: value.Name, Email: value.Email, Version: value.Version, CreatedAt: value.CreatedAt.Format(time.RFC3339Nano), UpdatedAt: value.UpdatedAt.Format(time.RFC3339Nano)}
-}
 func grpcError(err error) error {
 	var appErr *apperror.Error
 	if !errors.As(err, &appErr) {
@@ -235,7 +432,7 @@ func authenticateGRPC(ctx context.Context, method string, service *auth.Service,
 		if len(values) == 0 || !auth.VerifyPSK(values[0], cfg.PSK.Key) {
 			return nil, status.Error(codes.Unauthenticated, "missing or invalid PSK")
 		}
-		return context.WithValue(ctx, subjectKey{}, "psk"), nil
+		return principal.WithContext(ctx, principal.Principal{ID: "psk", Type: principal.TypeServiceAccount}), nil
 	}
 	if auth.MatchesAny(method, cfg.SkipGRPCMethods) {
 		return ctx, nil
@@ -247,11 +444,11 @@ func authenticateGRPC(ctx context.Context, method string, service *auth.Service,
 	if !ok || !strings.EqualFold(scheme, "Bearer") {
 		return nil, status.Error(codes.Unauthenticated, "invalid bearer token")
 	}
-	claims, err := service.Parse(raw)
+	caller, err := service.Verify(ctx, raw)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, "invalid or expired token")
 	}
-	return context.WithValue(ctx, subjectKey{}, claims.Subject), nil
+	return principal.WithContext(ctx, caller), nil
 }
 
 type contextServerStream struct {
@@ -329,8 +526,6 @@ func metricsStreamInterceptor(metrics *observability.Metrics, logger *slog.Logge
 		return err
 	}
 }
-
-type subjectKey struct{}
 
 func recoveryInterceptor(logger *slog.Logger) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (response any, err error) {

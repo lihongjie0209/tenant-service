@@ -29,69 +29,107 @@ definitions:
       status:
         type: string
     type: object
-  httptransport.CreateUserRequest:
+  httptransport.AcceptInvitationRequest:
     properties:
-      email:
-        example: alice@example.com
+      token:
+        type: string
+    required:
+    - token
+    type: object
+  httptransport.ConsumeQuotaRequest:
+    properties:
+      amount:
+        type: integer
+      key:
+        type: string
+      tenant_id:
+        type: string
+    required:
+    - amount
+    - key
+    - tenant_id
+    type: object
+  httptransport.CreateGroupRequest:
+    properties:
+      code:
         type: string
       name:
-        example: Alice
+        type: string
+      tenant_id:
+        type: string
+    required:
+    - code
+    - name
+    - tenant_id
+    type: object
+  httptransport.CreateInvitationRequest:
+    properties:
+      email:
+        type: string
+      expires_in_seconds:
+        type: integer
+      tenant_id:
         type: string
     required:
     - email
-    - name
+    - expires_in_seconds
+    - tenant_id
     type: object
-  httptransport.DeleteUserRequest:
+  httptransport.GetQuotaRequest:
     properties:
-      id:
-        format: uuid
+      key:
         type: string
-      version:
-        type: integer
-    required:
-    - id
-    - version
-    type: object
-  httptransport.GetUserRequest:
-    properties:
-      id:
-        format: uuid
+      tenant_id:
         type: string
     required:
-    - id
+    - key
+    - tenant_id
     type: object
-  httptransport.ListUsersRequest:
+  httptransport.GroupMemberRequest:
+    properties:
+      group_id:
+        type: string
+      membership_id:
+        type: string
+    required:
+    - group_id
+    - membership_id
+    type: object
+  httptransport.ListGroupsRequest:
+    properties:
+      tenant_id:
+        type: string
+    required:
+    - tenant_id
+    type: object
+  httptransport.ListInvitationsRequest:
     properties:
       page:
-        example: 1
         type: integer
       page_size:
-        example: 20
         type: integer
-    type: object
-  httptransport.LoginRequest:
-    properties:
-      client_id:
-        example: local-client
-        type: string
-      client_secret:
-        example: local-secret
+      tenant_id:
         type: string
     required:
-    - client_id
-    - client_secret
-    type: object
-  httptransport.LoginResponseBody:
-    properties:
-      access_token:
-        type: string
-      token_type:
-        type: string
+    - tenant_id
     type: object
   httptransport.MeResponseBody:
     properties:
       subject:
         type: string
+    type: object
+  httptransport.RemoveGroupMemberRequest:
+    properties:
+      group_id:
+        type: string
+      membership_id:
+        type: string
+      version:
+        type: integer
+    required:
+    - group_id
+    - membership_id
+    - version
     type: object
   httptransport.Response:
     properties:
@@ -103,48 +141,127 @@ definitions:
       request_id:
         type: string
     type: object
-  httptransport.UpdateUserRequest:
+  httptransport.RevokeInvitationRequest:
     properties:
-      email:
-        type: string
-      id:
-        format: uuid
-        type: string
-      name:
+      invitation_id:
         type: string
       version:
         type: integer
     required:
-    - email
-    - id
-    - name
+    - invitation_id
     - version
     type: object
-  user.Page:
+  httptransport.SetQuotaRequest:
     properties:
+      key:
+        type: string
+      limit:
+        minimum: 0
+        type: integer
+      tenant_id:
+        type: string
+      version:
+        minimum: 0
+        type: integer
+    required:
+    - key
+    - tenant_id
+    type: object
+  httptransport.UpdateGroupRequest:
+    properties:
+      group_id:
+        type: string
+      name:
+        type: string
+      status:
+        type: string
+      version:
+        type: integer
+    required:
+    - group_id
+    - name
+    - status
+    - version
+    type: object
+  tenant.Group:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      version:
+        type: integer
+    type: object
+  tenant.Invitation:
+    properties:
+      accepted_by_user_id:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      email:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      version:
+        type: integer
+    type: object
+  tenant.InvitationPage:
+    properties:
+      invitations:
+        items:
+          $ref: '#/definitions/tenant.Invitation'
+        type: array
       page:
         type: integer
       page_size:
         type: integer
       total:
         type: integer
-      users:
-        items:
-          $ref: '#/definitions/user.User'
-        type: array
     type: object
-  user.User:
+  tenant.Quota:
     properties:
       created_at:
         type: string
-      email:
+      created_by:
         type: string
-      id:
+      key:
         type: string
-      name:
+      limit:
+        type: integer
+      tenant_id:
         type: string
       updated_at:
         type: string
+      updated_by:
+        type: string
+      used:
+        type: integer
       version:
         type: integer
     type: object
@@ -156,17 +273,17 @@ info:
   title: Go API Template
   version: "1.0"
 paths:
-  /api/v1/auth/login:
+  /api/v1/groups/create:
     post:
       consumes:
       - application/json
       parameters:
-      - description: Client credentials
+      - description: Group
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httptransport.LoginRequest'
+          $ref: '#/definitions/httptransport.CreateGroupRequest'
       produces:
       - application/json
       responses:
@@ -177,23 +294,212 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/httptransport.LoginResponseBody'
+                  $ref: '#/definitions/tenant.Group'
               type: object
-        "400":
-          description: 'Code 10001: invalid request'
-          schema:
-            $ref: '#/definitions/httptransport.Response'
-        "401":
-          description: 'Code 20001: invalid credentials'
-          schema:
-            $ref: '#/definitions/httptransport.Response'
-        "429":
-          description: 'Code 10029: rate limited'
-          schema:
-            $ref: '#/definitions/httptransport.Response'
-      summary: Issue a JWT access token
+      security:
+      - Bearer: []
+      summary: Create a tenant member group
       tags:
-      - authentication
+      - groups
+  /api/v1/groups/list:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.ListGroupsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httptransport.Response'
+      security:
+      - Bearer: []
+      summary: List tenant member groups
+      tags:
+      - groups
+  /api/v1/groups/member-add:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Group membership
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.GroupMemberRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httptransport.Response'
+      security:
+      - Bearer: []
+      summary: Add a membership to a group
+      tags:
+      - groups
+  /api/v1/groups/member-remove:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Group membership and current version
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.RemoveGroupMemberRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httptransport.Response'
+      security:
+      - Bearer: []
+      summary: Remove a membership from a group using optimistic locking
+      tags:
+      - groups
+  /api/v1/groups/update:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Group and current version
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.UpdateGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/tenant.Group'
+              type: object
+      security:
+      - Bearer: []
+      summary: Update a member group using optimistic locking
+      tags:
+      - groups
+  /api/v1/invitations/accept:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Invitation token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.AcceptInvitationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httptransport.Response'
+      security:
+      - Bearer: []
+      summary: Accept an invitation as the authenticated subject
+      tags:
+      - invitations
+  /api/v1/invitations/create:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Invitation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.CreateInvitationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httptransport.Response'
+      security:
+      - Bearer: []
+      summary: Create a tenant invitation
+      tags:
+      - invitations
+  /api/v1/invitations/list:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant and pagination
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.ListInvitationsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/tenant.InvitationPage'
+              type: object
+      security:
+      - Bearer: []
+      summary: List tenant invitations
+      tags:
+      - invitations
+  /api/v1/invitations/revoke:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Invitation and current version
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.RevokeInvitationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/tenant.Invitation'
+              type: object
+      security:
+      - Bearer: []
+      summary: Revoke a pending invitation using optimistic locking
+      tags:
+      - invitations
   /api/v1/me:
     post:
       produces:
@@ -217,17 +523,40 @@ paths:
       summary: Return the authenticated subject
       tags:
       - authentication
-  /api/v1/users/create:
+  /api/v1/quotas/consume:
     post:
       consumes:
       - application/json
       parameters:
-      - description: User
+      - description: Quota consumption
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httptransport.CreateUserRequest'
+          $ref: '#/definitions/httptransport.ConsumeQuotaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httptransport.Response'
+      security:
+      - Bearer: []
+      summary: Atomically consume tenant quota
+      tags:
+      - quotas
+  /api/v1/quotas/get:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant quota key
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.GetQuotaRequest'
       produces:
       - application/json
       responses:
@@ -238,55 +567,24 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/user.User'
+                  $ref: '#/definitions/tenant.Quota'
               type: object
-        "400":
-          description: 'Code 10001: invalid request'
-          schema:
-            $ref: '#/definitions/httptransport.Response'
-        "409":
-          description: 'Code 30009: email already exists'
-          schema:
-            $ref: '#/definitions/httptransport.Response'
       security:
       - Bearer: []
-      summary: Create a user
+      summary: Get a tenant quota
       tags:
-      - users
-  /api/v1/users/delete:
+      - quotas
+  /api/v1/quotas/set:
     post:
       consumes:
       - application/json
       parameters:
-      - description: User ID and current version
+      - description: Quota and current version; version 0 creates
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httptransport.DeleteUserRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/httptransport.Response'
-      security:
-      - Bearer: []
-      summary: Delete a user using optimistic locking
-      tags:
-      - users
-  /api/v1/users/get:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: User ID
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/httptransport.GetUserRequest'
+          $ref: '#/definitions/httptransport.SetQuotaRequest'
       produces:
       - application/json
       responses:
@@ -297,77 +595,13 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/user.User'
-              type: object
-        "404":
-          description: 'Code 10004: user not found'
-          schema:
-            $ref: '#/definitions/httptransport.Response'
-      security:
-      - Bearer: []
-      summary: Get a user
-      tags:
-      - users
-  /api/v1/users/list:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Pagination
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/httptransport.ListUsersRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/httptransport.Response'
-            - properties:
-                body:
-                  $ref: '#/definitions/user.Page'
+                  $ref: '#/definitions/tenant.Quota'
               type: object
       security:
       - Bearer: []
-      summary: List users
+      summary: Create or update a tenant quota using optimistic locking
       tags:
-      - users
-  /api/v1/users/update:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: User and current version
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/httptransport.UpdateUserRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/httptransport.Response'
-            - properties:
-                body:
-                  $ref: '#/definitions/user.User'
-              type: object
-        "409":
-          description: 'Code 30009: version conflict'
-          schema:
-            $ref: '#/definitions/httptransport.Response'
-      security:
-      - Bearer: []
-      summary: Update a user using optimistic locking
-      tags:
-      - users
+      - quotas
   /api/v1/version:
     post:
       produces:
