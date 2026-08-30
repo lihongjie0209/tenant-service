@@ -2,54 +2,72 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"log/slog"
+	"fmt"
+	"os"
+	"strings"
 
-	"github.com/lihongjie0209/microservice-platform-go/dictionaryprovider"
-	"github.com/lihongjie0209/microservice-platform-go/distlock"
-	dictionaryv1 "github.com/lihongjie0209/platform-protos/gen/go/platform/dictionary/v1"
+	"github.com/google/uuid"
+	"github.com/lihongjie0209/microservice-platform-go/serviceregistry"
+	registryv1 "github.com/lihongjie0209/platform-protos/gen/go/platform/registry/v1"
 	"github.com/lihongjie0209/tenant-service/internal/config"
 	"github.com/lihongjie0209/tenant-service/internal/dictionarycontract"
 	"github.com/lihongjie0209/tenant-service/internal/outbound"
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 )
 
 type dictionaryProviderRuntime struct {
-	registrant *dictionaryprovider.Registrant
+	registrant *serviceregistry.Registrant
+	cancel     context.CancelFunc
 }
 
-func newDictionaryProviderRuntime(lc fx.Lifecycle, cfg config.Config, outboundClients *outbound.Registry, redisClient *redis.Client, logger *slog.Logger) (*dictionaryProviderRuntime, error) {
+func newDictionaryProviderRuntime(lc fx.Lifecycle, cfg config.Config, outboundClients *outbound.Registry) (*dictionaryProviderRuntime, error) {
 	if !cfg.DictionaryProvider.Enabled {
 		return &dictionaryProviderRuntime{}, nil
 	}
 	connection, ok := outboundClients.GRPC(cfg.DictionaryProvider.RegistryClient)
 	if !ok {
-		return nil, errors.New("dictionary registry gRPC client is not configured")
+		return nil, errors.New("service registry gRPC client is not configured")
 	}
-	if redisClient == nil {
-		return nil, errors.New("dictionary provider leader election requires Redis")
+	capabilities, err := json.Marshal(dictionarycontract.Capabilities())
+	if err != nil {
+		return nil, fmt.Errorf("encode dictionary capabilities: %w", err)
 	}
-	upstream := cfg.Outbound.GRPC[cfg.DictionaryProvider.RegistryClient]
-	registrant, err := dictionaryprovider.New(dictionaryprovider.Config{
-		ServiceName:     cfg.App.Name,
-		Target:          cfg.DictionaryProvider.Target,
-		Capabilities:    dictionarycontract.Capabilities(),
-		CacheTTL:        cfg.DictionaryProvider.CacheTTL,
-		CallTimeout:     upstream.Timeout,
-		ProviderTimeout: cfg.DictionaryProvider.ProviderTimeout,
-		LeaseDuration:   cfg.DictionaryProvider.LeaseDuration,
-		RetryDelay:      cfg.DictionaryProvider.RetryDelay,
-		LeaderTTL:       cfg.DictionaryProvider.LeaderTTL,
-		LeaderLockKey:   "dictionary-provider:" + cfg.App.Name,
-	}, dictionaryprovider.NewGRPCRegistry(dictionaryv1.NewDictionaryServiceClient(connection)), distlock.NewRedisLocker(redisClient), logger)
+	instanceID, _ := os.Hostname()
+	if strings.TrimSpace(instanceID) == "" {
+		instanceID = cfg.App.Name + "-" + uuid.NewString()
+	}
+	endpoint := cfg.DictionaryProvider.Target
+	if !strings.Contains(endpoint, "://") {
+		endpoint = "grpc://" + endpoint
+	}
+	registrant, err := serviceregistry.NewRegistrant(registryv1.NewRegistryServiceClient(connection), serviceregistry.RegistrantConfig{
+		Instance: &registryv1.ServiceInstance{InstanceId: instanceID, ServiceName: cfg.App.Name, Endpoint: endpoint, Protocol: "grpc", Version: "v1", Metadata: map[string]string{
+			"platform.dictionary.provider": "true", "platform.dictionary.capabilities": string(capabilities),
+			"platform.dictionary.cache_ttl_seconds":    fmt.Sprint(int(cfg.DictionaryProvider.CacheTTL.Seconds())),
+			"platform.dictionary.timeout_milliseconds": fmt.Sprint(cfg.DictionaryProvider.ProviderTimeout.Milliseconds()),
+		}},
+		Lease: cfg.DictionaryProvider.LeaseDuration, HeartbeatInterval: cfg.DictionaryProvider.LeaseDuration / 3,
+		CallTimeout: cfg.Outbound.GRPC[cfg.DictionaryProvider.RegistryClient].Timeout, RetryMin: cfg.DictionaryProvider.RetryDelay,
+	})
 	if err != nil {
 		return nil, err
 	}
 	runtime := &dictionaryProviderRuntime{registrant: registrant}
 	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error { return registrant.Start(context.WithoutCancel(ctx)) },
-		OnStop:  registrant.Stop,
+		OnStart: func(context.Context) error {
+			runCtx, cancel := context.WithCancel(context.Background())
+			runtime.cancel = cancel
+			go func() { _ = registrant.Run(runCtx) }()
+			return nil
+		},
+		OnStop: func(context.Context) error {
+			if runtime.cancel != nil {
+				runtime.cancel()
+			}
+			return nil
+		},
 	})
 	return runtime, nil
 }

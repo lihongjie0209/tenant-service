@@ -421,7 +421,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("event_bus.dispatch_lease", "30s")
 	v.SetDefault("event_bus.dispatch_retry_delay", "5s")
 	v.SetDefault("dictionary_provider.enabled", false)
-	v.SetDefault("dictionary_provider.registry_client", "dictionary-service")
+	v.SetDefault("dictionary_provider.registry_client", "service-registry-service")
 	v.SetDefault("dictionary_provider.target", "tenant-service:9090")
 	v.SetDefault("dictionary_provider.cache_ttl", "1m")
 	v.SetDefault("dictionary_provider.provider_timeout", "3s")
@@ -543,8 +543,8 @@ func (c Config) Validate() error {
 	}
 	if c.DictionaryProvider.Enabled {
 		upstream, ok := c.Outbound.GRPC[c.DictionaryProvider.RegistryClient]
-		if !ok || !c.Redis.Enabled || c.DictionaryProvider.Target == "" || c.DictionaryProvider.CacheTTL < 0 || c.DictionaryProvider.ProviderTimeout < 100*time.Millisecond || c.DictionaryProvider.LeaseDuration < 15*time.Second || c.DictionaryProvider.LeaseDuration > 300*time.Second || c.DictionaryProvider.RetryDelay <= 0 || c.DictionaryProvider.LeaderTTL <= 0 {
-			return errors.New("enabled dictionary_provider requires redis, a named registry gRPC client, target, and valid lease/timeouts")
+		if !ok || c.DictionaryProvider.Target == "" || c.DictionaryProvider.CacheTTL < 0 || c.DictionaryProvider.ProviderTimeout < 100*time.Millisecond || c.DictionaryProvider.LeaseDuration < 15*time.Second || c.DictionaryProvider.LeaseDuration > 300*time.Second || c.DictionaryProvider.RetryDelay <= 0 {
+			return errors.New("enabled dictionary_provider requires a named service registry gRPC client, target, and valid lease/timeouts")
 		}
 		_ = upstream
 	}
