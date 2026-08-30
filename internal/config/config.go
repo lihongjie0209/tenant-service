@@ -14,25 +14,26 @@ import (
 )
 
 type Config struct {
-	Runtime       Runtime       `mapstructure:"-"`
-	App           App           `mapstructure:"app"`
-	HTTP          HTTP          `mapstructure:"http"`
-	GRPC          GRPC          `mapstructure:"grpc"`
-	Log           Log           `mapstructure:"log"`
-	Database      Database      `mapstructure:"database"`
-	Redis         Redis         `mapstructure:"redis"`
-	Health        Health        `mapstructure:"health"`
-	RateLimit     RateLimit     `mapstructure:"rate_limit"`
-	Observability Observability `mapstructure:"observability"`
-	Swagger       Swagger       `mapstructure:"swagger"`
-	JWT           JWT           `mapstructure:"jwt"`
-	Auth          Auth          `mapstructure:"auth"`
-	Cron          Cron          `mapstructure:"cron"`
-	Migration     Migration     `mapstructure:"migration"`
-	User          User          `mapstructure:"user"`
-	Idempotency   Idempotency   `mapstructure:"idempotency"`
-	Outbound      Outbound      `mapstructure:"outbound"`
-	EventBus      EventBus      `mapstructure:"event_bus"`
+	Runtime            Runtime            `mapstructure:"-"`
+	App                App                `mapstructure:"app"`
+	HTTP               HTTP               `mapstructure:"http"`
+	GRPC               GRPC               `mapstructure:"grpc"`
+	Log                Log                `mapstructure:"log"`
+	Database           Database           `mapstructure:"database"`
+	Redis              Redis              `mapstructure:"redis"`
+	Health             Health             `mapstructure:"health"`
+	RateLimit          RateLimit          `mapstructure:"rate_limit"`
+	Observability      Observability      `mapstructure:"observability"`
+	Swagger            Swagger            `mapstructure:"swagger"`
+	JWT                JWT                `mapstructure:"jwt"`
+	Auth               Auth               `mapstructure:"auth"`
+	Cron               Cron               `mapstructure:"cron"`
+	Migration          Migration          `mapstructure:"migration"`
+	User               User               `mapstructure:"user"`
+	Idempotency        Idempotency        `mapstructure:"idempotency"`
+	Outbound           Outbound           `mapstructure:"outbound"`
+	EventBus           EventBus           `mapstructure:"event_bus"`
+	DictionaryProvider DictionaryProvider `mapstructure:"dictionary_provider"`
 }
 
 type Runtime struct {
@@ -198,6 +199,16 @@ type EventBus struct {
 	DispatchLease      time.Duration `mapstructure:"dispatch_lease"`
 	DispatchRetryDelay time.Duration `mapstructure:"dispatch_retry_delay"`
 }
+type DictionaryProvider struct {
+	Enabled         bool          `mapstructure:"enabled"`
+	RegistryClient  string        `mapstructure:"registry_client"`
+	Target          string        `mapstructure:"target"`
+	CacheTTL        time.Duration `mapstructure:"cache_ttl"`
+	ProviderTimeout time.Duration `mapstructure:"provider_timeout"`
+	LeaseDuration   time.Duration `mapstructure:"lease_duration"`
+	RetryDelay      time.Duration `mapstructure:"retry_delay"`
+	LeaderTTL       time.Duration `mapstructure:"leader_ttl"`
+}
 type Outbound struct {
 	HTTP map[string]HTTPUpstream `mapstructure:"http"`
 	GRPC map[string]GRPCUpstream `mapstructure:"grpc"`
@@ -211,12 +222,13 @@ type HTTPUpstream struct {
 	TLS     ClientTLS     `mapstructure:"tls"`
 }
 type GRPCUpstream struct {
-	Target  string        `mapstructure:"target"`
-	Timeout time.Duration `mapstructure:"timeout"`
-	Auth    ClientAuth    `mapstructure:"auth"`
-	Retry   Retry         `mapstructure:"retry"`
-	Breaker Breaker       `mapstructure:"breaker"`
-	TLS     ClientTLS     `mapstructure:"tls"`
+	Target                   string        `mapstructure:"target"`
+	Timeout                  time.Duration `mapstructure:"timeout"`
+	Auth                     ClientAuth    `mapstructure:"auth"`
+	Retry                    Retry         `mapstructure:"retry"`
+	Breaker                  Breaker       `mapstructure:"breaker"`
+	TLS                      ClientTLS     `mapstructure:"tls"`
+	AllowInsecureCredentials bool          `mapstructure:"allow_insecure_credentials"`
 }
 type ClientAuth struct {
 	Type  string `mapstructure:"type"`
@@ -408,6 +420,14 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("event_bus.dispatch_batch_size", 100)
 	v.SetDefault("event_bus.dispatch_lease", "30s")
 	v.SetDefault("event_bus.dispatch_retry_delay", "5s")
+	v.SetDefault("dictionary_provider.enabled", false)
+	v.SetDefault("dictionary_provider.registry_client", "dictionary-service")
+	v.SetDefault("dictionary_provider.target", "tenant-service:9090")
+	v.SetDefault("dictionary_provider.cache_ttl", "1m")
+	v.SetDefault("dictionary_provider.provider_timeout", "3s")
+	v.SetDefault("dictionary_provider.lease_duration", "60s")
+	v.SetDefault("dictionary_provider.retry_delay", "3s")
+	v.SetDefault("dictionary_provider.leader_ttl", "30s")
 	v.SetDefault("outbound.http", map[string]any{})
 	v.SetDefault("outbound.grpc", map[string]any{})
 }
@@ -521,11 +541,18 @@ func (c Config) Validate() error {
 	if c.EventBus.Enabled && (!c.Database.Enabled || len(c.EventBus.URLs) == 0 || c.EventBus.StreamName == "" || (c.EventBus.Storage != "file" && c.EventBus.Storage != "memory") || c.EventBus.DispatchInterval <= 0 || c.EventBus.DispatchBatchSize <= 0 || c.EventBus.DispatchLease <= 0 || c.EventBus.DispatchRetryDelay <= 0) {
 		return errors.New("enabled event_bus requires database, URLs, stream, valid storage, and positive dispatcher settings")
 	}
+	if c.DictionaryProvider.Enabled {
+		upstream, ok := c.Outbound.GRPC[c.DictionaryProvider.RegistryClient]
+		if !ok || !c.Redis.Enabled || c.DictionaryProvider.Target == "" || c.DictionaryProvider.CacheTTL < 0 || c.DictionaryProvider.ProviderTimeout < 100*time.Millisecond || c.DictionaryProvider.LeaseDuration < 15*time.Second || c.DictionaryProvider.LeaseDuration > 300*time.Second || c.DictionaryProvider.RetryDelay <= 0 || c.DictionaryProvider.LeaderTTL <= 0 {
+			return errors.New("enabled dictionary_provider requires redis, a named registry gRPC client, target, and valid lease/timeouts")
+		}
+		_ = upstream
+	}
 	for name, upstream := range c.Outbound.HTTP {
 		if upstream.BaseURL == "" || upstream.Timeout <= 0 {
 			return fmt.Errorf("outbound.http.%s requires base_url and positive timeout", name)
 		}
-		if err := validateClientPolicy(name, upstream.Auth, upstream.Retry, upstream.Breaker, upstream.TLS); err != nil {
+		if err := validateClientPolicy(name, upstream.Auth, upstream.Retry, upstream.Breaker, upstream.TLS, false); err != nil {
 			return err
 		}
 	}
@@ -533,21 +560,21 @@ func (c Config) Validate() error {
 		if upstream.Target == "" || upstream.Timeout <= 0 {
 			return fmt.Errorf("outbound.grpc.%s requires target and positive timeout", name)
 		}
-		if err := validateClientPolicy(name, upstream.Auth, upstream.Retry, upstream.Breaker, upstream.TLS); err != nil {
+		if err := validateClientPolicy(name, upstream.Auth, upstream.Retry, upstream.Breaker, upstream.TLS, upstream.AllowInsecureCredentials && c.App.Env != "production"); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateClientPolicy(name string, auth ClientAuth, retry Retry, breaker Breaker, tls ClientTLS) error {
+func validateClientPolicy(name string, auth ClientAuth, retry Retry, breaker Breaker, tls ClientTLS, allowInsecureCredentials bool) error {
 	if auth.Type != "" && auth.Type != "bearer" && auth.Type != "psk" {
 		return fmt.Errorf("outbound %s auth.type must be bearer or psk", name)
 	}
 	if auth.Type != "" && auth.Token == "" {
 		return fmt.Errorf("outbound %s auth.token is required", name)
 	}
-	if auth.Type != "" && !tls.Enabled {
+	if auth.Type != "" && !tls.Enabled && !allowInsecureCredentials {
 		return fmt.Errorf("outbound %s credentials require TLS", name)
 	}
 	if retry.MaxAttempts < 1 || retry.MaxAttempts > 5 || retry.InitialBackoff <= 0 || retry.MaxBackoff < retry.InitialBackoff {

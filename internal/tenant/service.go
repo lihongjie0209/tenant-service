@@ -457,4 +457,4 @@ func membershipStatusEvent(value string) tenantv1.MembershipStatus {
 	return tenantv1.MembershipStatus(tenantv1.MembershipStatus_value["MEMBERSHIP_STATUS_"+strings.ToUpper(value)])
 }
 
-var Module = fx.Module("tenant", fx.Provide(NewRepository, NewRuntimeService))
+var Module = fx.Module("tenant", fx.Provide(NewRepository, NewRuntimeService, NewDictionaryProvider))

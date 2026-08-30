@@ -77,3 +77,17 @@ func TestConfig_ValidateAutoMigration(t *testing.T) {
 		t.Fatal("Validate() error = nil, want auto migration dependency error")
 	}
 }
+
+func TestComposeProfile_ConfiguresDynamicDictionaryRegistration(t *testing.T) {
+	t.Setenv("APP_DATABASE_ENABLED", "true")
+	t.Setenv("APP_DATABASE_DSN", "postgres://tenant:tenant@postgres/platform")
+	t.Setenv("APP_REDIS_ENABLED", "true")
+	cfg, err := LoadWithProfile("../../config/config.yaml", "compose")
+	if err != nil {
+		t.Fatalf("LoadWithProfile() error = %v", err)
+	}
+	upstream, ok := cfg.Outbound.GRPC[cfg.DictionaryProvider.RegistryClient]
+	if !cfg.DictionaryProvider.Enabled || !ok || !cfg.Redis.Enabled || upstream.Auth.Type != "psk" || !upstream.AllowInsecureCredentials {
+		t.Fatalf("dynamic dictionary compose configuration is incomplete: provider=%+v upstream=%+v", cfg.DictionaryProvider, upstream)
+	}
+}

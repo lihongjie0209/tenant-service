@@ -39,6 +39,7 @@ func New(cfg config.Config) *fx.App {
 		EventBusModule,
 		fx.Provide(observability.NewMetrics),
 		outbound.Module,
+		DictionaryProviderModule,
 		scheduler.Module,
 		grpctransport.Module,
 		httptransport.Module,

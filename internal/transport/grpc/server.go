@@ -14,6 +14,7 @@ import (
 
 	"github.com/lihongjie0209/microservice-platform-go/principal"
 	commonv1 "github.com/lihongjie0209/platform-protos/gen/go/platform/common/v1"
+	dictionaryv1 "github.com/lihongjie0209/platform-protos/gen/go/platform/dictionary/v1"
 	tenantv1 "github.com/lihongjie0209/platform-protos/gen/go/platform/tenant/v1"
 	hellov1 "github.com/lihongjie0209/tenant-service/gen/hello/v1"
 	"github.com/lihongjie0209/tenant-service/internal/apperror"
@@ -46,7 +47,7 @@ type Server struct {
 	logger  *slog.Logger
 }
 
-func NewServer(lc fx.Lifecycle, cfg config.Config, authService *auth.Service, healthService *apphealth.Service, tenantService *tenantdomain.Service, metrics *observability.Metrics, logger *slog.Logger) (*Server, error) {
+func NewServer(lc fx.Lifecycle, cfg config.Config, authService *auth.Service, healthService *apphealth.Service, tenantService *tenantdomain.Service, dictionaryProvider *tenantdomain.DictionaryProvider, metrics *observability.Metrics, logger *slog.Logger) (*Server, error) {
 	options := []grpc.ServerOption{
 		grpc.MaxRecvMsgSize(cfg.GRPC.MaxReceiveBytes),
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
@@ -63,6 +64,7 @@ func NewServer(lc fx.Lifecycle, cfg config.Config, authService *auth.Service, he
 	grpcServer := grpc.NewServer(options...)
 	hellov1.RegisterHelloServiceServer(grpcServer, &helloServer{})
 	tenantv1.RegisterTenantServiceServer(grpcServer, &tenantServer{service: tenantService})
+	dictionaryv1.RegisterDictionaryProviderServiceServer(grpcServer, &dictionaryProviderServer{provider: dictionaryProvider})
 	grpc_health_v1.RegisterHealthServer(grpcServer, &healthServer{health: healthService})
 	if cfg.GRPC.ReflectionEnabled {
 		reflection.Register(grpcServer)

@@ -130,6 +130,16 @@ event_bus:
   dispatch_lease: 30s
   dispatch_retry_delay: 5s
 
+dictionary_provider:
+  enabled: false
+  registry_client: dictionary-service
+  target: tenant-service:9090
+  cache_ttl: 1m
+  provider_timeout: 3s
+  lease_duration: 60s
+  retry_delay: 3s
+  leader_ttl: 30s
+
 # Named outbound clients. Put environment-specific endpoints and credentials in
 # config-{env}.yaml or APP_ variables.
 outbound:
