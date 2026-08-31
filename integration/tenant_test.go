@@ -172,7 +172,11 @@ func TestTenantRepositoryCompatibility(t *testing.T) {
 				t.Fatal(err)
 			}
 			publisher := &recordingPublisher{}
-			dispatcher, err := platformoutbox.New(tenantdomain.NewOutboxStore(db), publisher, platformoutbox.Config{Lease: time.Minute})
+			outboxStore, err := platformoutbox.NewSQLStore(db, "tenant_outbox_events")
+			if err != nil {
+				t.Fatal(err)
+			}
+			dispatcher, err := platformoutbox.New(outboxStore, publisher, platformoutbox.Config{Lease: time.Minute})
 			if err != nil {
 				t.Fatal(err)
 			}

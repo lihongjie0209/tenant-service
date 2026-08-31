@@ -7,23 +7,23 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lihongjie0209/microservice-platform-go/eventbus"
 	platformoutbox "github.com/lihongjie0209/microservice-platform-go/outbox"
 	"github.com/lihongjie0209/tenant-service/internal/config"
-	tenantdomain "github.com/lihongjie0209/tenant-service/internal/tenant"
 	"go.uber.org/fx"
 )
 
 type eventRuntime struct {
 	config config.Config
-	store  *tenantdomain.OutboxStore
+	store  *platformoutbox.SQLStore
 	logger *slog.Logger
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 	bus    *eventbus.Bus
 }
 
-func newEventRuntime(lifecycle fx.Lifecycle, cfg config.Config, store *tenantdomain.OutboxStore, logger *slog.Logger) *eventRuntime {
+func newEventRuntime(lifecycle fx.Lifecycle, cfg config.Config, store *platformoutbox.SQLStore, logger *slog.Logger) *eventRuntime {
 	runtime := &eventRuntime{config: cfg, store: store, logger: logger}
 	lifecycle.Append(fx.Hook{OnStart: runtime.start, OnStop: runtime.stop})
 	return runtime
@@ -33,6 +33,9 @@ func (r *eventRuntime) start(ctx context.Context) error {
 	if !r.config.EventBus.Enabled {
 		r.logger.Info("event bus is disabled")
 		return nil
+	}
+	if r.store == nil {
+		return errors.New("enabled event bus requires database outbox")
 	}
 	bus, err := eventbus.New(ctx, eventbus.Config{
 		URLs: r.config.EventBus.URLs, ClientName: r.config.App.Name,
@@ -52,9 +55,32 @@ func (r *eventRuntime) start(ctx context.Context) error {
 	r.bus = bus
 	runCtx, cancel := context.WithCancel(context.Background())
 	r.cancel = cancel
+	cleaner, err := platformoutbox.NewRetentionCleaner(r.store, platformoutbox.RetentionConfig{Retention: r.config.EventBus.PublishedRetention, BatchSize: r.config.EventBus.CleanupBatchSize})
+	if err != nil {
+		cancel()
+		_ = bus.Close()
+		return err
+	}
 	r.wg.Go(func() { r.dispatch(runCtx, dispatcher) })
+	r.wg.Go(func() { r.clean(runCtx, cleaner) })
 	r.logger.Info("event bus started", "stream", r.config.EventBus.StreamName)
 	return nil
+}
+func (r *eventRuntime) clean(ctx context.Context, cleaner *platformoutbox.RetentionCleaner) {
+	ticker := time.NewTicker(r.config.EventBus.CleanupInterval)
+	defer ticker.Stop()
+	for {
+		if deleted, err := cleaner.RunOnce(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			r.logger.ErrorContext(ctx, "clean published tenant outbox events", "error", err)
+		} else if deleted > 0 {
+			r.logger.InfoContext(ctx, "published tenant outbox events cleaned", "deleted", deleted)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 func (r *eventRuntime) dispatch(ctx context.Context, dispatcher *platformoutbox.Dispatcher) {
@@ -83,4 +109,11 @@ func (r *eventRuntime) stop(context.Context) error {
 	return nil
 }
 
-var EventBusModule = fx.Module("event-bus", fx.Provide(tenantdomain.NewOutboxStore, newEventRuntime), fx.Invoke(func(*eventRuntime) {}))
+func newTenantOutboxStore(db *sqlx.DB) (*platformoutbox.SQLStore, error) {
+	if db == nil {
+		return nil, nil
+	}
+	return platformoutbox.NewSQLStore(db, "tenant_outbox_events")
+}
+
+var EventBusModule = fx.Module("event-bus", fx.Provide(newTenantOutboxStore, newEventRuntime), fx.Invoke(func(*eventRuntime) {}))
