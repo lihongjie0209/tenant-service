@@ -179,6 +179,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/groups/members/list": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "List assignments for a member group",
+                "parameters": [
+                    {
+                        "description": "Member group",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.ListGroupMembersRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.GroupMembersResponseBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/groups/update": {
             "post": {
                 "security": [
@@ -1238,6 +1288,28 @@ const docTemplate = `{
                 }
             }
         },
+        "httptransport.GroupMembersResponseBody": {
+            "type": "object",
+            "properties": {
+                "group_members": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/tenant.GroupMember"
+                    }
+                }
+            }
+        },
+        "httptransport.ListGroupMembersRequest": {
+            "type": "object",
+            "required": [
+                "group_id"
+            ],
+            "properties": {
+                "group_id": {
+                    "type": "string"
+                }
+            }
+        },
         "httptransport.ListGroupsRequest": {
             "type": "object",
             "required": [
@@ -1482,6 +1554,41 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "tenant.GroupMember": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "group_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "membership_id": {
                     "type": "string"
                 },
                 "status": {

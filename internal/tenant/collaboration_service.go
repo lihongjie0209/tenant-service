@@ -221,22 +221,46 @@ func (s *Service) AddGroupMember(ctx context.Context, groupID, membershipID stri
 	if group.TenantID != membership.TenantID || group.Status != "active" || membership.Status != "active" {
 		return apperror.Invalid("group and membership must be active in the same tenant", nil)
 	}
+	existing, existingErr := s.repository.GetGroupMember(ctx, groupID, membershipID)
+	if existingErr == nil && existing.Status == "active" {
+		return nil
+	}
+	if existingErr != nil && !errors.Is(existingErr, ErrNotFound) {
+		return translate(existingErr)
+	}
 	fields, err := audit.New(ctx, s.now())
 	if err != nil {
 		return apperror.Unauthorized("authenticated actor is required")
 	}
 	value := GroupMember{ID: uuid.NewString(), TenantID: group.TenantID, GroupID: groupID, MembershipID: membershipID, Status: "active", Version: 1, CreatedAt: fields.CreatedAt, UpdatedAt: fields.UpdatedAt, CreatedBy: fields.CreatedBy, UpdatedBy: fields.UpdatedBy}
+	operation := func(tx *sqlx.Tx) error { return s.repository.CreateGroupMember(ctx, tx, value) }
+	if existingErr == nil {
+		value = existing
+		value.Status, value.UpdatedAt, value.UpdatedBy = "active", fields.UpdatedAt, fields.UpdatedBy
+		operation = func(tx *sqlx.Tx) error { return s.repository.UpdateGroupMember(ctx, tx, value) }
+	}
 	event, err := newOutboxEvent(ctx, "platform.tenant.group.changed.v1", "platform.tenant.v1.GroupChanged", groupID, group.TenantID, fields.CreatedAt, &tenantv1.GroupChangedEvent{Group: eventGroup(group), MembershipId: membershipID, ChangeType: "member_added"})
 	if err != nil {
 		return apperror.Internal(err)
 	}
 	err = s.transactor.Within(ctx, nil, func(tx *sqlx.Tx) error {
-		if err := s.repository.CreateGroupMember(ctx, tx, value); err != nil {
+		if err := operation(tx); err != nil {
 			return err
 		}
 		return s.repository.AddOutbox(ctx, tx, event)
 	})
 	return translate(err)
+}
+func (s *Service) ListGroupMembers(ctx context.Context, groupID string) ([]GroupMember, error) {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return nil, apperror.Invalid("group_id is required", nil)
+	}
+	if _, err := s.repository.GetGroup(ctx, groupID); err != nil {
+		return nil, translate(err)
+	}
+	values, err := s.repository.ListGroupMembers(ctx, groupID)
+	return values, translate(err)
 }
 func (s *Service) RemoveGroupMember(ctx context.Context, groupID, membershipID string, version int64) error {
 	value, err := s.repository.GetGroupMember(ctx, groupID, membershipID)

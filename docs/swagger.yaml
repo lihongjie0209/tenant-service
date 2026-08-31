@@ -124,6 +124,20 @@ definitions:
     - group_id
     - membership_id
     type: object
+  httptransport.GroupMembersResponseBody:
+    properties:
+      group_members:
+        items:
+          $ref: '#/definitions/tenant.GroupMember'
+        type: array
+    type: object
+  httptransport.ListGroupMembersRequest:
+    properties:
+      group_id:
+        type: string
+    required:
+    - group_id
+    type: object
   httptransport.ListGroupsRequest:
     properties:
       tenant_id:
@@ -287,6 +301,29 @@ definitions:
       id:
         type: string
       name:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      version:
+        type: integer
+    type: object
+  tenant.GroupMember:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: string
+      group_id:
+        type: string
+      id:
+        type: string
+      membership_id:
         type: string
       status:
         type: string
@@ -539,6 +576,34 @@ paths:
       security:
       - Bearer: []
       summary: Remove a membership from a group using optimistic locking
+      tags:
+      - groups
+  /api/v1/groups/members/list:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Member group
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.ListGroupMembersRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.GroupMembersResponseBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: List assignments for a member group
       tags:
       - groups
   /api/v1/groups/update:

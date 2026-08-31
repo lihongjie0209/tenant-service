@@ -45,6 +45,7 @@ type Repository interface {
 	CreateGroupMember(context.Context, sqlx.ExtContext, GroupMember) error
 	GetGroupMember(context.Context, string, string) (GroupMember, error)
 	UpdateGroupMember(context.Context, sqlx.ExtContext, GroupMember) error
+	ListGroupMembers(context.Context, string) ([]GroupMember, error)
 	GetQuota(context.Context, string, string) (Quota, error)
 	ListQuotas(context.Context, string, string, int, int) ([]Quota, int64, error)
 	CreateQuota(context.Context, sqlx.ExtContext, Quota) error
@@ -338,6 +339,14 @@ func (r *SQLRepository) UpdateGroupMember(ctx context.Context, exec sqlx.ExtCont
 	query := r.db.Rebind("UPDATE group_members SET status = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE id = ? AND version = ?")
 	result, err := exec.ExecContext(ctx, query, value.Status, value.UpdatedAt, value.UpdatedBy, value.ID, value.Version)
 	return affected(result, err, "update group member")
+}
+func (r *SQLRepository) ListGroupMembers(ctx context.Context, groupID string) ([]GroupMember, error) {
+	items := make([]GroupMember, 0)
+	query := r.db.Rebind("SELECT " + groupMemberColumns + " FROM group_members WHERE group_id = ? ORDER BY created_at, id")
+	if err := r.db.SelectContext(ctx, &items, query, groupID); err != nil {
+		return nil, fmt.Errorf("list group members: %w", err)
+	}
+	return items, nil
 }
 
 func (r *SQLRepository) GetQuota(ctx context.Context, tenantID, key string) (Quota, error) {

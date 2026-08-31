@@ -135,6 +135,12 @@ type RemoveGroupMemberRequest struct {
 	MembershipID string `json:"membership_id" binding:"required"`
 	Version      int64  `json:"version" binding:"required,gt=0"`
 }
+type ListGroupMembersRequest struct {
+	GroupID string `json:"group_id" binding:"required"`
+}
+type GroupMembersResponseBody struct {
+	GroupMembers []tenant.GroupMember `json:"group_members"`
+}
 type ListGroupsRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
 }
@@ -667,6 +673,29 @@ func (h *Handler) RemoveGroupMember(c *gin.Context) {
 		return
 	}
 	OK(c, gin.H{"removed": true})
+}
+
+// ListGroupMembers godoc
+// @Summary List assignments for a member group
+// @Tags groups
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body ListGroupMembersRequest true "Member group"
+// @Success 200 {object} Response{body=GroupMembersResponseBody}
+// @Router /api/v1/groups/members/list [post]
+func (h *Handler) ListGroupMembers(c *gin.Context) {
+	var request ListGroupMembersRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	values, err := h.tenants.ListGroupMembers(c.Request.Context(), request.GroupID)
+	if err != nil {
+		Fail(c, h.logger, err)
+		return
+	}
+	OK(c, GroupMembersResponseBody{GroupMembers: values})
 }
 
 // ListGroups godoc

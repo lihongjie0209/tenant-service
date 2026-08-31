@@ -156,6 +156,9 @@ func (f *fakeRepository) UpdateGroupMember(_ context.Context, _ sqlx.ExtContext,
 	}
 	return f.updateErr
 }
+func (f *fakeRepository) ListGroupMembers(context.Context, string) ([]GroupMember, error) {
+	return []GroupMember{f.groupMember}, nil
+}
 func (f *fakeRepository) GetQuota(context.Context, string, string) (Quota, error) {
 	if f.quota.TenantID == "" {
 		return Quota{}, ErrNotFound
@@ -479,6 +482,45 @@ func TestService_ListQuotas(t *testing.T) {
 	}
 	if page.Total != 1 || page.Page != 1 || page.PageSize != 20 || len(page.Quotas) != 1 {
 		t.Fatalf("ListQuotas() = %+v", page)
+	}
+}
+
+func TestService_AddGroupMemberReactivatesRemovedAssignment(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	mock.ExpectBegin()
+	mock.ExpectCommit()
+	repository := &fakeRepository{
+		group:       Group{ID: "group-1", TenantID: "tenant-1", Status: "active"},
+		membership:  Membership{ID: "membership-1", TenantID: "tenant-1", Status: "active"},
+		groupMember: GroupMember{ID: "group-member-1", TenantID: "tenant-1", GroupID: "group-1", MembershipID: "membership-1", Status: "removed", Version: 2},
+	}
+	service := NewService(repository, database.NewTransactor(sqlx.NewDb(db, "sqlmock")), nil)
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser})
+	if err := service.AddGroupMember(ctx, "group-1", "membership-1"); err != nil {
+		t.Fatal(err)
+	}
+	if repository.groupMember.Status != "active" || repository.groupMember.Version != 3 || repository.groupMember.UpdatedBy != "admin-1" {
+		t.Fatalf("group member = %+v", repository.groupMember)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestService_AddGroupMemberIsIdempotentWhenActive(t *testing.T) {
+	t.Parallel()
+	repository := &fakeRepository{
+		group:       Group{ID: "group-1", TenantID: "tenant-1", Status: "active"},
+		membership:  Membership{ID: "membership-1", TenantID: "tenant-1", Status: "active"},
+		groupMember: GroupMember{ID: "group-member-1", TenantID: "tenant-1", GroupID: "group-1", MembershipID: "membership-1", Status: "active", Version: 1},
+	}
+	service := NewService(repository, &database.Transactor{}, nil)
+	if err := service.AddGroupMember(t.Context(), "group-1", "membership-1"); err != nil {
+		t.Fatal(err)
 	}
 }
 

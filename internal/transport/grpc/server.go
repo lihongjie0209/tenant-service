@@ -245,6 +245,17 @@ func (s *tenantServer) RemoveGroupMember(ctx context.Context, request *tenantv1.
 	}
 	return &tenantv1.RemoveGroupMemberResponse{Removed: true}, nil
 }
+func (s *tenantServer) ListGroupMembers(ctx context.Context, request *tenantv1.ListGroupMembersRequest) (*tenantv1.ListGroupMembersResponse, error) {
+	values, err := s.service.ListGroupMembers(ctx, request.GetGroupId())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	items := make([]*tenantv1.GroupMember, 0, len(values))
+	for _, value := range values {
+		items = append(items, toProtoGroupMember(value))
+	}
+	return &tenantv1.ListGroupMembersResponse{GroupMembers: items}, nil
+}
 func (s *tenantServer) ListGroups(ctx context.Context, request *tenantv1.ListGroupsRequest) (*tenantv1.ListGroupsResponse, error) {
 	values, err := s.service.ListGroups(ctx, request.GetTenantId())
 	if err != nil {
@@ -351,6 +362,9 @@ func toProtoGroup(value tenantdomain.Group) *tenantv1.Group {
 }
 func toProtoQuota(value tenantdomain.Quota) *tenantv1.Quota {
 	return &tenantv1.Quota{TenantId: value.TenantID, Key: value.Key, Limit: value.Limit, Used: value.Used, Version: value.Version, CreatedAt: timestamppb.New(value.CreatedAt), UpdatedAt: timestamppb.New(value.UpdatedAt), CreatedBy: value.CreatedBy, UpdatedBy: value.UpdatedBy}
+}
+func toProtoGroupMember(value tenantdomain.GroupMember) *tenantv1.GroupMember {
+	return &tenantv1.GroupMember{Id: value.ID, TenantId: value.TenantID, GroupId: value.GroupID, MembershipId: value.MembershipID, Status: value.Status, Version: value.Version, CreatedAt: timestamppb.New(value.CreatedAt), UpdatedAt: timestamppb.New(value.UpdatedAt), CreatedBy: value.CreatedBy, UpdatedBy: value.UpdatedBy}
 }
 func tenantStatusString(value tenantv1.TenantStatus) string {
 	return strings.ToLower(strings.TrimPrefix(value.String(), "TENANT_STATUS_"))
