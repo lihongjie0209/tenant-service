@@ -9,17 +9,17 @@ import (
 	"github.com/lihongjie0209/tenant-service/internal/apperror"
 	"github.com/lihongjie0209/tenant-service/internal/buildinfo"
 	"github.com/lihongjie0209/tenant-service/internal/health"
-	tenantdomain "github.com/lihongjie0209/tenant-service/internal/tenant"
+	tenant "github.com/lihongjie0209/tenant-service/internal/tenant"
 )
 
 type Handler struct {
 	logger *slog.Logger
 	health *health.Service
 
-	tenants *tenantdomain.Service
+	tenants *tenant.Service
 }
 
-func NewHandler(healthService *health.Service, tenantService *tenantdomain.Service, logger *slog.Logger) *Handler {
+func NewHandler(healthService *health.Service, tenantService *tenant.Service, logger *slog.Logger) *Handler {
 	return &Handler{health: healthService, tenants: tenantService, logger: logger}
 }
 
@@ -92,12 +92,16 @@ type ListOrganizationUnitsRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
 }
 type OrganizationUnitsResponseBody struct {
-	OrganizationUnits []tenantdomain.OrganizationUnit `json:"organization_units"`
+	OrganizationUnits []tenant.OrganizationUnit `json:"organization_units"`
 }
 type CreateInvitationRequest struct {
 	TenantID         string `json:"tenant_id" binding:"required"`
 	Email            string `json:"email" binding:"required"`
 	ExpiresInSeconds int64  `json:"expires_in_seconds" binding:"required,gt=0"`
+}
+type CreateInvitationResponseBody struct {
+	Invitation tenant.Invitation `json:"invitation"`
+	Token      string            `json:"token"`
 }
 type AcceptInvitationRequest struct {
 	Token string `json:"token" binding:"required"`
@@ -479,7 +483,7 @@ func (h *Handler) ListOrganizationUnits(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body CreateInvitationRequest true "Invitation"
-// @Success 200 {object} Response
+// @Success 200 {object} Response{body=CreateInvitationResponseBody}
 // @Router /api/v1/invitations/create [post]
 func (h *Handler) CreateInvitation(c *gin.Context) {
 	var request CreateInvitationRequest
@@ -492,7 +496,7 @@ func (h *Handler) CreateInvitation(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, gin.H{"invitation": value, "token": token})
+	OK(c, CreateInvitationResponseBody{Invitation: value, Token: token})
 }
 
 // AcceptInvitation godoc

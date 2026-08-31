@@ -75,6 +75,13 @@ definitions:
     - expires_in_seconds
     - tenant_id
     type: object
+  httptransport.CreateInvitationResponseBody:
+    properties:
+      invitation:
+        $ref: '#/definitions/tenant.Invitation'
+      token:
+        type: string
+    type: object
   httptransport.CreateOrganizationUnitRequest:
     properties:
       code:
@@ -576,7 +583,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httptransport.Response'
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.CreateInvitationResponseBody'
+              type: object
       security:
       - Bearer: []
       summary: Create a tenant invitation

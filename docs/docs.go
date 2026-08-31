@@ -299,7 +299,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.CreateInvitationResponseBody"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1098,6 +1110,17 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httptransport.CreateInvitationResponseBody": {
+            "type": "object",
+            "properties": {
+                "invitation": {
+                    "$ref": "#/definitions/tenant.Invitation"
+                },
+                "token": {
                     "type": "string"
                 }
             }
