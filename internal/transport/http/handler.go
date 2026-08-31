@@ -142,6 +142,12 @@ type GetQuotaRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
 	Key      string `json:"key" binding:"required"`
 }
+type ListQuotasRequest struct {
+	TenantID string `json:"tenant_id" binding:"required"`
+	Keyword  string `json:"keyword"`
+	Page     int    `json:"page"`
+	PageSize int    `json:"page_size"`
+}
 type SetQuotaRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
 	Key      string `json:"key" binding:"required"`
@@ -702,6 +708,29 @@ func (h *Handler) GetQuota(c *gin.Context) {
 		return
 	}
 	value, err := h.tenants.GetQuota(c.Request.Context(), request.TenantID, request.Key)
+	if err != nil {
+		Fail(c, h.logger, err)
+		return
+	}
+	OK(c, value)
+}
+
+// ListQuotas godoc
+// @Summary List tenant quotas
+// @Tags quotas
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body ListQuotasRequest true "Tenant, keyword and pagination"
+// @Success 200 {object} Response{body=tenant.QuotaPage}
+// @Router /api/v1/quotas/list [post]
+func (h *Handler) ListQuotas(c *gin.Context) {
+	var request ListQuotasRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	value, err := h.tenants.ListQuotas(c.Request.Context(), request.TenantID, request.Keyword, request.Page, request.PageSize)
 	if err != nil {
 		Fail(c, h.logger, err)
 		return

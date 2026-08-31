@@ -162,6 +162,9 @@ func (f *fakeRepository) GetQuota(context.Context, string, string) (Quota, error
 	}
 	return f.quota, nil
 }
+func (f *fakeRepository) ListQuotas(context.Context, string, string, int, int) ([]Quota, int64, error) {
+	return []Quota{f.quota}, 1, nil
+}
 func (f *fakeRepository) CreateQuota(_ context.Context, _ sqlx.ExtContext, value Quota) error {
 	f.quota = value
 	return nil
@@ -463,5 +466,46 @@ func TestService_ConsumeQuotaHonorsLimit(t *testing.T) {
 	quota, allowed, err := service.ConsumeQuota(ctx, "tenant-1", "users", 1)
 	if err != nil || allowed || quota.Used != 2 {
 		t.Fatalf("exhausted ConsumeQuota() = (%+v, %v, %v)", quota, allowed, err)
+	}
+}
+
+func TestService_ListQuotas(t *testing.T) {
+	t.Parallel()
+	repository := &fakeRepository{quota: Quota{TenantID: "tenant-1", Key: "users", Limit: 100, Used: 2, Version: 1}}
+	service := NewService(repository, &database.Transactor{}, nil)
+	page, err := service.ListQuotas(t.Context(), " tenant-1 ", " user ", 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 1 || page.Page != 1 || page.PageSize != 20 || len(page.Quotas) != 1 {
+		t.Fatalf("ListQuotas() = %+v", page)
+	}
+}
+
+func TestSQLRepository_ListQuotasFiltersByTenantAndKeyword(t *testing.T) {
+	t.Parallel()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	repository := &SQLRepository{db: sqlx.NewDb(db, "sqlmock")}
+	countQuery := "SELECT COUNT(*) FROM tenant_quotas WHERE tenant_id = ? AND LOWER(quota_key) LIKE LOWER(?)"
+	listQuery := "SELECT " + quotaColumns + " FROM tenant_quotas WHERE tenant_id = ? AND LOWER(quota_key) LIKE LOWER(?) ORDER BY quota_key, tenant_id LIMIT ? OFFSET ?"
+	mock.ExpectQuery(regexp.QuoteMeta(countQuery)).WithArgs("tenant-1", "%user%").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	now := time.Date(2026, 8, 31, 22, 30, 0, 0, time.FixedZone("UTC+8", 8*60*60))
+	mock.ExpectQuery(regexp.QuoteMeta(listQuery)).WithArgs("tenant-1", "%user%", 20, 0).WillReturnRows(
+		sqlmock.NewRows([]string{"tenant_id", "quota_key", "limit_value", "used_value", "version", "created_at", "updated_at", "created_by", "updated_by"}).
+			AddRow("tenant-1", "users", 100, 2, 1, now, now, "admin-1", "admin-1"),
+	)
+	items, total, err := repository.ListQuotas(t.Context(), "tenant-1", "user", 20, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 || len(items) != 1 || items[0].Key != "users" {
+		t.Fatalf("ListQuotas() items=%+v total=%d", items, total)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
 	}
 }

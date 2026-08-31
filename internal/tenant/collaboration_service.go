@@ -269,6 +269,23 @@ func (s *Service) GetQuota(ctx context.Context, tenantID, key string) (Quota, er
 	value, err := s.repository.GetQuota(ctx, tenantID, key)
 	return value, translate(err)
 }
+func (s *Service) ListQuotas(ctx context.Context, tenantID, keyword string, page, pageSize int) (QuotaPage, error) {
+	tenantID, keyword = strings.TrimSpace(tenantID), strings.TrimSpace(keyword)
+	if tenantID == "" {
+		return QuotaPage{}, apperror.Invalid("tenant_id is required", nil)
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		return QuotaPage{}, apperror.Invalid("page_size must not exceed 100", nil)
+	}
+	items, total, err := s.repository.ListQuotas(ctx, tenantID, keyword, pageSize, (page-1)*pageSize)
+	return QuotaPage{Quotas: items, Total: total, Page: page, PageSize: pageSize}, translate(err)
+}
 func (s *Service) SetQuota(ctx context.Context, tenantID, key string, limit, expectedVersion int64) (Quota, error) {
 	if tenantID == "" || key == "" || limit < 0 || expectedVersion < 0 {
 		return Quota{}, apperror.Invalid("invalid quota", nil)

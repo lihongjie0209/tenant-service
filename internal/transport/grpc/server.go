@@ -263,6 +263,24 @@ func (s *tenantServer) GetQuota(ctx context.Context, request *tenantv1.GetQuotaR
 	}
 	return &tenantv1.GetQuotaResponse{Quota: toProtoQuota(value)}, nil
 }
+func (s *tenantServer) ListQuotas(ctx context.Context, request *tenantv1.ListQuotasRequest) (*tenantv1.ListQuotasResponse, error) {
+	pageNumber, pageSize := 0, 0
+	if request.GetPage() != nil {
+		pageNumber, pageSize = int(request.GetPage().GetPage()), int(request.GetPage().GetPageSize())
+	}
+	page, err := s.service.ListQuotas(ctx, request.GetTenantId(), request.GetKeyword(), pageNumber, pageSize)
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	items := make([]*tenantv1.Quota, 0, len(page.Quotas))
+	for _, value := range page.Quotas {
+		items = append(items, toProtoQuota(value))
+	}
+	return &tenantv1.ListQuotasResponse{
+		Quotas: items,
+		Page:   &commonv1.PageResult{Total: uint64(page.Total), Page: uint32(page.Page), PageSize: uint32(page.PageSize)},
+	}, nil
+}
 func (s *tenantServer) SetQuota(ctx context.Context, request *tenantv1.SetQuotaRequest) (*tenantv1.SetQuotaResponse, error) {
 	value, err := s.service.SetQuota(ctx, request.GetTenantId(), request.GetKey(), request.GetLimit(), request.GetExpectedVersion())
 	if err != nil {

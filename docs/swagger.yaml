@@ -164,6 +164,19 @@ definitions:
     required:
     - tenant_id
     type: object
+  httptransport.ListQuotasRequest:
+    properties:
+      keyword:
+        type: string
+      page:
+        type: integer
+      page_size:
+        type: integer
+      tenant_id:
+        type: string
+    required:
+    - tenant_id
+    type: object
   httptransport.ListTenantsRequest:
     properties:
       keyword:
@@ -408,6 +421,19 @@ definitions:
       used:
         type: integer
       version:
+        type: integer
+    type: object
+  tenant.QuotaPage:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      quotas:
+        items:
+          $ref: '#/definitions/tenant.Quota'
+        type: array
+      total:
         type: integer
     type: object
 info:
@@ -864,6 +890,34 @@ paths:
       security:
       - Bearer: []
       summary: Get a tenant quota
+      tags:
+      - quotas
+  /api/v1/quotas/list:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant, keyword and pagination
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.ListQuotasRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/tenant.QuotaPage'
+              type: object
+      security:
+      - Bearer: []
+      summary: List tenant quotas
       tags:
       - quotas
   /api/v1/quotas/set:

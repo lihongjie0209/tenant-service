@@ -96,6 +96,13 @@ type Quota struct {
 	UpdatedBy string    `db:"updated_by" json:"updated_by"`
 }
 
+type QuotaPage struct {
+	Quotas   []Quota `json:"quotas"`
+	Total    int64   `json:"total"`
+	Page     int     `json:"page"`
+	PageSize int     `json:"page_size"`
+}
+
 type InvitationPage struct {
 	Invitations []Invitation `json:"invitations"`
 	Total       int64        `json:"total"`

@@ -46,6 +46,7 @@ type Repository interface {
 	GetGroupMember(context.Context, string, string) (GroupMember, error)
 	UpdateGroupMember(context.Context, sqlx.ExtContext, GroupMember) error
 	GetQuota(context.Context, string, string) (Quota, error)
+	ListQuotas(context.Context, string, string, int, int) ([]Quota, int64, error)
 	CreateQuota(context.Context, sqlx.ExtContext, Quota) error
 	UpdateQuota(context.Context, sqlx.ExtContext, Quota) error
 	ConsumeQuota(context.Context, sqlx.ExtContext, string, string, int64, time.Time, string) (Quota, bool, error)
@@ -345,6 +346,25 @@ func (r *SQLRepository) GetQuota(ctx context.Context, tenantID, key string) (Quo
 		return Quota{}, mapNotFound(err, "select tenant quota")
 	}
 	return value, nil
+}
+func (r *SQLRepository) ListQuotas(ctx context.Context, tenantID, keyword string, limit, offset int) ([]Quota, int64, error) {
+	where := " WHERE tenant_id = ?"
+	args := []any{tenantID}
+	if keyword != "" {
+		where += " AND LOWER(quota_key) LIKE LOWER(?)"
+		args = append(args, "%"+keyword+"%")
+	}
+	var total int64
+	if err := r.db.GetContext(ctx, &total, r.db.Rebind("SELECT COUNT(*) FROM tenant_quotas"+where), args...); err != nil {
+		return nil, 0, fmt.Errorf("count tenant quotas: %w", err)
+	}
+	items := make([]Quota, 0, limit)
+	queryArgs := append(append([]any(nil), args...), limit, offset)
+	query := r.db.Rebind("SELECT " + quotaColumns + " FROM tenant_quotas" + where + " ORDER BY quota_key, tenant_id LIMIT ? OFFSET ?")
+	if err := r.db.SelectContext(ctx, &items, query, queryArgs...); err != nil {
+		return nil, 0, fmt.Errorf("list tenant quotas: %w", err)
+	}
+	return items, total, nil
 }
 func (r *SQLRepository) CreateQuota(ctx context.Context, exec sqlx.ExtContext, value Quota) error {
 	query := r.db.Rebind("INSERT INTO tenant_quotas (" + quotaColumns + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
