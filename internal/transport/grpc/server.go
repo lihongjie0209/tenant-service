@@ -133,6 +133,24 @@ func (s *tenantServer) UpdateMembership(ctx context.Context, request *tenantv1.U
 	}
 	return &tenantv1.UpdateMembershipResponse{Membership: toProtoMembership(value)}, nil
 }
+func (s *tenantServer) ListMemberships(ctx context.Context, request *tenantv1.ListMembershipsRequest) (*tenantv1.ListMembershipsResponse, error) {
+	pageNumber, pageSize := 0, 0
+	if request.GetPage() != nil {
+		pageNumber, pageSize = int(request.GetPage().GetPage()), int(request.GetPage().GetPageSize())
+	}
+	page, err := s.service.ListMemberships(ctx, request.GetTenantId(), request.GetUserId(), membershipStatusString(request.GetStatus()), pageNumber, pageSize)
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	items := make([]*tenantv1.Membership, 0, len(page.Memberships))
+	for _, value := range page.Memberships {
+		items = append(items, toProtoMembership(value))
+	}
+	return &tenantv1.ListMembershipsResponse{
+		Memberships: items,
+		Page:        &commonv1.PageResult{Total: uint64(page.Total), Page: uint32(page.Page), PageSize: uint32(page.PageSize)},
+	}, nil
+}
 func (s *tenantServer) CreateOrganizationUnit(ctx context.Context, request *tenantv1.CreateOrganizationUnitRequest) (*tenantv1.CreateOrganizationUnitResponse, error) {
 	value, err := s.service.CreateOrganizationUnit(ctx, request.GetTenantId(), request.GetParentId(), request.GetCode(), request.GetName())
 	if err != nil {

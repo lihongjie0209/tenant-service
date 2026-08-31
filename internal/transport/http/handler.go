@@ -54,6 +54,13 @@ type UpdateMembershipRequest struct {
 	Version                   int64  `json:"version" binding:"required"`
 	Reason                    string `json:"reason"`
 }
+type ListMembershipsRequest struct {
+	TenantID string `json:"tenant_id" binding:"required"`
+	UserID   string `json:"user_id"`
+	Status   string `json:"status"`
+	Page     int    `json:"page"`
+	PageSize int    `json:"page_size"`
+}
 type ListUserTenantsRequest struct {
 	UserID   string `json:"user_id" binding:"required"`
 	Page     int    `json:"page"`
@@ -307,6 +314,29 @@ func (h *Handler) UpdateMembership(c *gin.Context) {
 		return
 	}
 	value, err := h.tenants.UpdateMembership(c.Request.Context(), request.MembershipID, request.Status, request.PrimaryOrganizationUnitID, request.Version)
+	if err != nil {
+		Fail(c, h.logger, err)
+		return
+	}
+	OK(c, value)
+}
+
+// ListMemberships godoc
+// @Summary List tenant memberships
+// @Tags memberships
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body ListMembershipsRequest true "Tenant, filters and pagination"
+// @Success 200 {object} Response{body=tenant.MembershipPage}
+// @Router /api/v1/memberships/list [post]
+func (h *Handler) ListMemberships(c *gin.Context) {
+	var request ListMembershipsRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	value, err := h.tenants.ListMemberships(c.Request.Context(), request.TenantID, request.UserID, request.Status, request.Page, request.PageSize)
 	if err != nil {
 		Fail(c, h.logger, err)
 		return

@@ -135,6 +135,21 @@ definitions:
     required:
     - tenant_id
     type: object
+  httptransport.ListMembershipsRequest:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      status:
+        type: string
+      tenant_id:
+        type: string
+      user_id:
+        type: string
+    required:
+    - tenant_id
+    type: object
   httptransport.ListOrganizationUnitsRequest:
     properties:
       tenant_id:
@@ -294,6 +309,44 @@ definitions:
       invitations:
         items:
           $ref: '#/definitions/tenant.Invitation'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  tenant.Membership:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      joined_at:
+        type: string
+      primary_organization_unit_id:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      user_id:
+        type: string
+      version:
+        type: integer
+    type: object
+  tenant.MembershipPage:
+    properties:
+      memberships:
+        items:
+          $ref: '#/definitions/tenant.Membership'
         type: array
       page:
         type: integer
@@ -608,6 +661,34 @@ paths:
       summary: Return the authenticated subject
       tags:
       - authentication
+  /api/v1/memberships/list:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant, filters and pagination
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.ListMembershipsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/tenant.MembershipPage'
+              type: object
+      security:
+      - Bearer: []
+      summary: List tenant memberships
+      tags:
+      - memberships
   /api/v1/organization-units/create:
     post:
       consumes:

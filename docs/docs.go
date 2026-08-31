@@ -447,6 +447,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/memberships/list": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "memberships"
+                ],
+                "summary": "List tenant memberships",
+                "parameters": [
+                    {
+                        "description": "Tenant, filters and pagination",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.ListMembershipsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/tenant.MembershipPage"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/organization-units/create": {
             "post": {
                 "security": [
@@ -1143,6 +1193,29 @@ const docTemplate = `{
                 }
             }
         },
+        "httptransport.ListMembershipsRequest": {
+            "type": "object",
+            "required": [
+                "tenant_id"
+            ],
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "httptransport.ListOrganizationUnitsRequest": {
             "type": "object",
             "required": [
@@ -1380,6 +1453,64 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/tenant.Invitation"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "tenant.Membership": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "joined_at": {
+                    "type": "string"
+                },
+                "primary_organization_unit_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "tenant.MembershipPage": {
+            "type": "object",
+            "properties": {
+                "memberships": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/tenant.Membership"
                     }
                 },
                 "page": {

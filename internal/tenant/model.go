@@ -110,6 +110,13 @@ type Page struct {
 	PageSize int      `json:"page_size"`
 }
 
+type MembershipPage struct {
+	Memberships []Membership `json:"memberships"`
+	Total       int64        `json:"total"`
+	Page        int          `json:"page"`
+	PageSize    int          `json:"page_size"`
+}
+
 type OutboxEvent struct {
 	ID          string
 	Subject     string

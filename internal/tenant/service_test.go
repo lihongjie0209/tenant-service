@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -53,6 +54,9 @@ func (f *fakeRepository) ValidateMembership(context.Context, string, string) (Te
 }
 func (f *fakeRepository) ListUserTenants(context.Context, string, int, int) ([]Tenant, int64, error) {
 	return []Tenant{f.tenant}, 1, nil
+}
+func (f *fakeRepository) ListMemberships(context.Context, string, string, string, int, int) ([]Membership, int64, error) {
+	return []Membership{f.membership}, 1, nil
 }
 func (f *fakeRepository) ListTenants(context.Context, string, string, int, int) ([]Tenant, int64, error) {
 	return nil, 0, nil
@@ -178,6 +182,72 @@ func (f *fakeRepository) ConsumeQuota(_ context.Context, _ sqlx.ExtContext, _ st
 	f.quota.UpdatedAt = now
 	f.quota.UpdatedBy = actor
 	return f.quota, true, nil
+}
+
+func TestService_ListMemberships(t *testing.T) {
+	t.Parallel()
+	repository := &fakeRepository{membership: Membership{ID: "membership-1", TenantID: "tenant-1", UserID: "user-1", Status: "active"}}
+	service := NewService(repository, &database.Transactor{}, nil)
+
+	page, err := service.ListMemberships(t.Context(), "tenant-1", "user-1", "active", 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 1 || page.Page != 1 || page.PageSize != 20 || len(page.Memberships) != 1 {
+		t.Fatalf("ListMemberships() = %+v", page)
+	}
+}
+
+func TestService_ListMembershipsRejectsInvalidQuery(t *testing.T) {
+	t.Parallel()
+	service := NewService(&fakeRepository{}, &database.Transactor{}, nil)
+	tests := []struct {
+		name     string
+		tenantID string
+		status   string
+		pageSize int
+	}{
+		{name: "missing tenant", status: "active", pageSize: 20},
+		{name: "invalid status", tenantID: "tenant-1", status: "unknown", pageSize: 20},
+		{name: "oversized page", tenantID: "tenant-1", status: "active", pageSize: 101},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := service.ListMemberships(t.Context(), test.tenantID, "", test.status, 1, test.pageSize)
+			var appErr *apperror.Error
+			if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInvalidArgument {
+				t.Fatalf("ListMemberships() error = %v", err)
+			}
+		})
+	}
+}
+
+func TestSQLRepository_ListMembershipsAppliesTenantUserAndStatusFilters(t *testing.T) {
+	t.Parallel()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	repository := &SQLRepository{db: sqlx.NewDb(db, "sqlmock")}
+	countQuery := "SELECT COUNT(*) FROM memberships WHERE tenant_id = ? AND user_id = ? AND status = ?"
+	listQuery := "SELECT " + membershipSelectColumns + " FROM memberships WHERE tenant_id = ? AND user_id = ? AND status = ? ORDER BY joined_at DESC, id DESC LIMIT ? OFFSET ?"
+	mock.ExpectQuery(regexp.QuoteMeta(countQuery)).WithArgs("tenant-1", "user-1", "active").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	now := time.Date(2026, 8, 31, 22, 0, 0, 0, time.FixedZone("UTC+8", 8*60*60))
+	mock.ExpectQuery(regexp.QuoteMeta(listQuery)).WithArgs("tenant-1", "user-1", "active", 20, 0).WillReturnRows(
+		sqlmock.NewRows([]string{"id", "tenant_id", "user_id", "status", "primary_organization_unit_id", "joined_at", "version", "created_at", "updated_at", "created_by", "updated_by"}).
+			AddRow("membership-1", "tenant-1", "user-1", "active", "org-1", now, 1, now, now, "admin-1", "admin-1"),
+	)
+	items, total, err := repository.ListMemberships(t.Context(), "tenant-1", "user-1", "active", 20, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 || len(items) != 1 || items[0].ID != "membership-1" {
+		t.Fatalf("ListMemberships() items=%+v total=%d", items, total)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestService_CreateInjectsAuditActor(t *testing.T) {
