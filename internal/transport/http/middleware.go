@@ -268,7 +268,8 @@ func Authentication(service *auth.Service, logger *slog.Logger, cfg config.Auth)
 				return
 			}
 			c.Set("subject", "psk")
-			c.Request = c.Request.WithContext(principal.WithContext(c.Request.Context(), principal.Principal{ID: "psk", Type: principal.TypeServiceAccount}))
+			ctx := principal.WithContext(c.Request.Context(), principal.Principal{ID: "psk", Type: principal.TypeServiceAccount})
+			c.Request = c.Request.WithContext(platformauthz.WithCallerCredential(ctx, c.GetHeader("Authorization")))
 			c.Next()
 			return
 		}
