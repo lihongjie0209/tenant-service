@@ -2,6 +2,7 @@ package httptransport
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"mime"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	platformauthz "github.com/lihongjie0209/microservice-platform-go/authz"
 	"github.com/lihongjie0209/microservice-platform-go/principal"
 	"github.com/lihongjie0209/tenant-service/internal/apperror"
 	"github.com/lihongjie0209/tenant-service/internal/auth"
@@ -219,9 +221,42 @@ func JWT(service *auth.Service, logger *slog.Logger) gin.HandlerFunc {
 			return
 		}
 		c.Set("subject", caller.ID)
-		c.Request = c.Request.WithContext(principal.WithContext(c.Request.Context(), caller))
+		ctx := principal.WithContext(c.Request.Context(), caller)
+		c.Request = c.Request.WithContext(platformauthz.WithCallerCredential(ctx, header))
 		c.Next()
 	}
+}
+
+func Authorization(enabled bool, authorizer platformauthz.Authorizer, logger *slog.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requirement, protected := tenantHTTPRequirement(c.FullPath())
+		if !enabled || !protected {
+			c.Next()
+			return
+		}
+		if err := platformauthz.Enforce(c.Request.Context(), authorizer, requirement); err != nil {
+			if errors.Is(err, platformauthz.ErrDecisionUnavailable) {
+				Fail(c, logger, apperror.Unavailable("authorization decision is unavailable", err))
+				return
+			}
+			Fail(c, logger, apperror.Forbidden("permission denied"))
+			return
+		}
+		c.Next()
+	}
+}
+
+func tenantHTTPRequirement(route string) (platformauthz.Requirement, bool) {
+	requirements := map[string]platformauthz.Requirement{
+		"/api/v1/tenants/get": {Resource: "tenant.profile", Action: "read"}, "/api/v1/tenants/update": {Resource: "tenant.profile", Action: "update"}, "/api/v1/tenants/list": {Resource: "tenant.profile", Action: "list"},
+		"/api/v1/memberships/add": {Resource: "tenant.membership", Action: "create"}, "/api/v1/memberships/update": {Resource: "tenant.membership", Action: "update"}, "/api/v1/memberships/list": {Resource: "tenant.membership", Action: "list"},
+		"/api/v1/organization-units/create": {Resource: "tenant.organization-unit", Action: "create"}, "/api/v1/organization-units/get": {Resource: "tenant.organization-unit", Action: "read"}, "/api/v1/organization-units/update": {Resource: "tenant.organization-unit", Action: "update"}, "/api/v1/organization-units/list": {Resource: "tenant.organization-unit", Action: "list"},
+		"/api/v1/invitations/create": {Resource: "tenant.invitation", Action: "create"}, "/api/v1/invitations/revoke": {Resource: "tenant.invitation", Action: "revoke"}, "/api/v1/invitations/list": {Resource: "tenant.invitation", Action: "list"},
+		"/api/v1/groups/create": {Resource: "tenant.group", Action: "create"}, "/api/v1/groups/update": {Resource: "tenant.group", Action: "update"}, "/api/v1/groups/member-add": {Resource: "tenant.group", Action: "add-member"}, "/api/v1/groups/member-remove": {Resource: "tenant.group", Action: "remove-member"}, "/api/v1/groups/members/list": {Resource: "tenant.group", Action: "list-members"}, "/api/v1/groups/list": {Resource: "tenant.group", Action: "list"},
+		"/api/v1/quotas/get": {Resource: "tenant.quota", Action: "read"}, "/api/v1/quotas/list": {Resource: "tenant.quota", Action: "list"}, "/api/v1/quotas/set": {Resource: "tenant.quota", Action: "update"}, "/api/v1/quotas/consume": {Resource: "tenant.quota", Action: "consume"},
+	}
+	requirement, ok := requirements[route]
+	return requirement, ok
 }
 
 func Authentication(service *auth.Service, logger *slog.Logger, cfg config.Auth) gin.HandlerFunc {

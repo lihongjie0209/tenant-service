@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	platformauthz "github.com/lihongjie0209/microservice-platform-go/authz"
 	"github.com/lihongjie0209/microservice-platform-go/principal"
 	commonv1 "github.com/lihongjie0209/platform-protos/gen/go/platform/common/v1"
 	dictionaryv1 "github.com/lihongjie0209/platform-protos/gen/go/platform/dictionary/v1"
@@ -45,11 +46,11 @@ type Server struct {
 	logger  *slog.Logger
 }
 
-func NewServer(lc fx.Lifecycle, cfg config.Config, authService *auth.Service, healthService *apphealth.Service, tenantService *tenantdomain.Service, dictionaryProvider *tenantdomain.DictionaryProvider, metrics *observability.Metrics, logger *slog.Logger) (*Server, error) {
+func NewServer(lc fx.Lifecycle, cfg config.Config, authService *auth.Service, authorizer platformauthz.Authorizer, healthService *apphealth.Service, tenantService *tenantdomain.Service, dictionaryProvider *tenantdomain.DictionaryProvider, metrics *observability.Metrics, logger *slog.Logger) (*Server, error) {
 	options := []grpc.ServerOption{
 		grpc.MaxRecvMsgSize(cfg.GRPC.MaxReceiveBytes),
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
-		grpc.ChainUnaryInterceptor(environmentInterceptor(cfg.Runtime.ActiveProfile), requestIDInterceptor, idempotencyInterceptor, recoveryInterceptor(logger), authInterceptor(authService, cfg.Auth), metricsInterceptor(metrics, logger)),
+		grpc.ChainUnaryInterceptor(environmentInterceptor(cfg.Runtime.ActiveProfile), requestIDInterceptor, idempotencyInterceptor, recoveryInterceptor(logger), authInterceptor(authService, cfg.Auth), platformauthz.UnaryServerInterceptor(authorizer, tenantGRPCRequirement(cfg.Authorization.Enabled)), metricsInterceptor(metrics, logger)),
 		grpc.ChainStreamInterceptor(environmentStreamInterceptor(cfg.Runtime.ActiveProfile), requestIDStreamInterceptor, idempotencyStreamInterceptor, recoveryStreamInterceptor(logger), authStreamInterceptor(authService, cfg.Auth), metricsStreamInterceptor(metrics, logger)),
 	}
 	if cfg.GRPC.TLS.Enabled {
@@ -69,6 +70,24 @@ func NewServer(lc fx.Lifecycle, cfg config.Config, authService *auth.Service, he
 	server := &Server{server: grpcServer, address: cfg.GRPC.Address, logger: logger}
 	lc.Append(fx.Hook{OnStart: server.start(cfg.GRPC.Enabled), OnStop: server.stop})
 	return server, nil
+}
+
+func tenantGRPCRequirement(enabled bool) platformauthz.GRPCResolver {
+	return func(method string) (platformauthz.Requirement, bool) {
+		if !enabled {
+			return platformauthz.Requirement{}, false
+		}
+		requirements := map[string]platformauthz.Requirement{
+			tenantv1.TenantService_GetTenant_FullMethodName: {Resource: "tenant.profile", Action: "read"}, tenantv1.TenantService_ListTenants_FullMethodName: {Resource: "tenant.profile", Action: "list"}, tenantv1.TenantService_UpdateTenant_FullMethodName: {Resource: "tenant.profile", Action: "update"},
+			tenantv1.TenantService_AddMembership_FullMethodName: {Resource: "tenant.membership", Action: "create"}, tenantv1.TenantService_UpdateMembership_FullMethodName: {Resource: "tenant.membership", Action: "update"}, tenantv1.TenantService_ListMemberships_FullMethodName: {Resource: "tenant.membership", Action: "list"},
+			tenantv1.TenantService_CreateOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "create"}, tenantv1.TenantService_GetOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "read"}, tenantv1.TenantService_UpdateOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "update"}, tenantv1.TenantService_ListOrganizationUnits_FullMethodName: {Resource: "tenant.organization-unit", Action: "list"},
+			tenantv1.TenantService_CreateInvitation_FullMethodName: {Resource: "tenant.invitation", Action: "create"}, tenantv1.TenantService_RevokeInvitation_FullMethodName: {Resource: "tenant.invitation", Action: "revoke"}, tenantv1.TenantService_ListInvitations_FullMethodName: {Resource: "tenant.invitation", Action: "list"},
+			tenantv1.TenantService_CreateGroup_FullMethodName: {Resource: "tenant.group", Action: "create"}, tenantv1.TenantService_UpdateGroup_FullMethodName: {Resource: "tenant.group", Action: "update"}, tenantv1.TenantService_AddGroupMember_FullMethodName: {Resource: "tenant.group", Action: "add-member"}, tenantv1.TenantService_RemoveGroupMember_FullMethodName: {Resource: "tenant.group", Action: "remove-member"}, tenantv1.TenantService_ListGroupMembers_FullMethodName: {Resource: "tenant.group", Action: "list-members"}, tenantv1.TenantService_ListGroups_FullMethodName: {Resource: "tenant.group", Action: "list"},
+			tenantv1.TenantService_GetQuota_FullMethodName: {Resource: "tenant.quota", Action: "read"}, tenantv1.TenantService_ListQuotas_FullMethodName: {Resource: "tenant.quota", Action: "list"}, tenantv1.TenantService_SetQuota_FullMethodName: {Resource: "tenant.quota", Action: "update"}, tenantv1.TenantService_ConsumeQuota_FullMethodName: {Resource: "tenant.quota", Action: "consume"},
+		}
+		requirement, ok := requirements[method]
+		return requirement, ok
+	}
 }
 
 type tenantServer struct {
