@@ -54,6 +54,9 @@ func (f *fakeRepository) ValidateMembership(context.Context, string, string) (Te
 func (f *fakeRepository) ListUserTenants(context.Context, string, int, int) ([]Tenant, int64, error) {
 	return []Tenant{f.tenant}, 1, nil
 }
+func (f *fakeRepository) ListTenants(context.Context, string, string, int, int) ([]Tenant, int64, error) {
+	return nil, 0, nil
+}
 func (f *fakeRepository) UpdateMembership(context.Context, sqlx.ExtContext, Membership) error {
 	return f.updateErr
 }

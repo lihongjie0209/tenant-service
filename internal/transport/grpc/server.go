@@ -90,6 +90,28 @@ func (s *tenantServer) GetTenant(ctx context.Context, request *tenantv1.GetTenan
 	}
 	return &tenantv1.GetTenantResponse{Tenant: toProtoTenant(value)}, nil
 }
+func (s *tenantServer) ListTenants(ctx context.Context, request *tenantv1.ListTenantsRequest) (*tenantv1.ListTenantsResponse, error) {
+	pageNumber, pageSize := 1, 20
+	if request.GetPage() != nil {
+		pageNumber, pageSize = int(request.GetPage().GetPage()), int(request.GetPage().GetPageSize())
+	}
+	statusFilter := tenantStatusString(request.GetStatus())
+	if request.GetStatus() != tenantv1.TenantStatus_TENANT_STATUS_UNSPECIFIED && statusFilter == "" {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant status")
+	}
+	page, err := s.service.ListTenants(ctx, request.GetKeyword(), statusFilter, pageNumber, pageSize)
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	items := make([]*tenantv1.Tenant, 0, len(page.Tenants))
+	for _, value := range page.Tenants {
+		items = append(items, toProtoTenant(value))
+	}
+	return &tenantv1.ListTenantsResponse{
+		Tenants: items,
+		Page:    &commonv1.PageResult{Total: uint64(page.Total), Page: uint32(page.Page), PageSize: uint32(page.PageSize)},
+	}, nil
+}
 func (s *tenantServer) UpdateTenant(ctx context.Context, request *tenantv1.UpdateTenantRequest) (*tenantv1.UpdateTenantResponse, error) {
 	value, err := s.service.Update(ctx, request.GetTenantId(), request.GetName(), tenantStatusString(request.GetStatus()), request.GetExpectedVersion())
 	if err != nil {

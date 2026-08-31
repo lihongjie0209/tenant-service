@@ -206,6 +206,23 @@ func (s *Service) ListUserTenants(ctx context.Context, userID string, page, page
 	items, total, err := s.repository.ListUserTenants(ctx, userID, pageSize, (page-1)*pageSize)
 	return Page{Tenants: items, Total: total, Page: page, PageSize: pageSize}, translate(err)
 }
+func (s *Service) ListTenants(ctx context.Context, keyword, status string, page, pageSize int) (Page, error) {
+	keyword, status = strings.TrimSpace(keyword), strings.TrimSpace(status)
+	if status != "" && !validTenantStatus(status) {
+		return Page{}, apperror.Invalid("invalid tenant status", nil)
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		return Page{}, apperror.Invalid("page_size must not exceed 100", nil)
+	}
+	items, total, err := s.repository.ListTenants(ctx, keyword, status, pageSize, (page-1)*pageSize)
+	return Page{Tenants: items, Total: total, Page: page, PageSize: pageSize}, translate(err)
+}
 func (s *Service) UpdateMembership(ctx context.Context, id, status, organizationUnitID string, version int64) (Membership, error) {
 	if id == "" || version < 1 || !validMembershipStatus(status) {
 		return Membership{}, apperror.Invalid("invalid membership update", nil)

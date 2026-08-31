@@ -24,6 +24,7 @@ type Repository interface {
 	GetMembership(context.Context, string) (Membership, error)
 	ValidateMembership(context.Context, string, string) (Tenant, Membership, error)
 	ListUserTenants(context.Context, string, int, int) ([]Tenant, int64, error)
+	ListTenants(context.Context, string, string, int, int) ([]Tenant, int64, error)
 	UpdateMembership(context.Context, sqlx.ExtContext, Membership) error
 	AddOutbox(context.Context, sqlx.ExtContext, OutboxEvent) error
 	CreateOrganizationUnit(context.Context, sqlx.ExtContext, OrganizationUnit) error
@@ -120,6 +121,31 @@ func (r *SQLRepository) ListUserTenants(ctx context.Context, userID string, limi
 	query := r.db.Rebind("SELECT " + prefixedTenantColumns("t") + " FROM memberships m JOIN tenants t ON t.id = m.tenant_id WHERE m.user_id = ? AND m.status = 'active' AND t.status = 'active' ORDER BY t.created_at DESC, t.id DESC LIMIT ? OFFSET ?")
 	if err := r.db.SelectContext(ctx, &items, query, userID, limit, offset); err != nil {
 		return nil, 0, fmt.Errorf("list user tenants: %w", err)
+	}
+	return items, total, nil
+}
+
+func (r *SQLRepository) ListTenants(ctx context.Context, keyword, status string, limit, offset int) ([]Tenant, int64, error) {
+	where := " WHERE 1=1"
+	args := make([]any, 0, 4)
+	if status != "" {
+		where += " AND status = ?"
+		args = append(args, status)
+	}
+	if keyword != "" {
+		where += " AND (LOWER(code) LIKE LOWER(?) OR LOWER(name) LIKE LOWER(?))"
+		pattern := "%" + keyword + "%"
+		args = append(args, pattern, pattern)
+	}
+	var total int64
+	if err := r.db.GetContext(ctx, &total, r.db.Rebind("SELECT COUNT(*) FROM tenants"+where), args...); err != nil {
+		return nil, 0, fmt.Errorf("count tenants: %w", err)
+	}
+	items := make([]Tenant, 0, limit)
+	queryArgs := append(append([]any(nil), args...), limit, offset)
+	query := r.db.Rebind("SELECT " + tenantColumns + " FROM tenants" + where + " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?")
+	if err := r.db.SelectContext(ctx, &items, query, queryArgs...); err != nil {
+		return nil, 0, fmt.Errorf("list tenants: %w", err)
 	}
 	return items, total, nil
 }

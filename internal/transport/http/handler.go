@@ -59,6 +59,12 @@ type ListUserTenantsRequest struct {
 	Page     int    `json:"page"`
 	PageSize int    `json:"page_size"`
 }
+type ListTenantsRequest struct {
+	Keyword  string `json:"keyword"`
+	Status   string `json:"status"`
+	Page     int    `json:"page"`
+	PageSize int    `json:"page_size"`
+}
 type CreateOrganizationUnitRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
 	ParentID string `json:"parent_id"`
@@ -311,6 +317,29 @@ func (h *Handler) ListUserTenants(c *gin.Context) {
 		return
 	}
 	value, err := h.tenants.ListUserTenants(c.Request.Context(), request.UserID, request.Page, request.PageSize)
+	if err != nil {
+		Fail(c, h.logger, err)
+		return
+	}
+	OK(c, value)
+}
+
+// ListTenants godoc
+// @Summary List tenants
+// @Tags tenants
+// @Security Bearer
+// @Accept json
+// @Produce json
+// @Param request body ListTenantsRequest true "Filters and pagination"
+// @Success 200 {object} Response
+// @Router /api/v1/tenants/list [post]
+func (h *Handler) ListTenants(c *gin.Context) {
+	var request ListTenantsRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	value, err := h.tenants.ListTenants(c.Request.Context(), request.Keyword, request.Status, request.Page, request.PageSize)
 	if err != nil {
 		Fail(c, h.logger, err)
 		return

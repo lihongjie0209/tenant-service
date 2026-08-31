@@ -585,6 +585,44 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/tenants/list": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tenants"
+                ],
+                "summary": "List tenants",
+                "parameters": [
+                    {
+                        "description": "Filters and pagination",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.ListTenantsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/version": {
             "post": {
                 "produces": [
@@ -865,6 +903,23 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httptransport.ListTenantsRequest": {
+            "type": "object",
+            "properties": {
+                "keyword": {
+                    "type": "string"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "status": {
                     "type": "string"
                 }
             }
