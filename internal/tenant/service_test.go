@@ -222,6 +222,19 @@ func TestService_ListMembershipsRejectsInvalidQuery(t *testing.T) {
 	}
 }
 
+func TestService_AddMembershipRejectsOrganizationFromAnotherTenant(t *testing.T) {
+	t.Parallel()
+	repository := &fakeRepository{organizations: map[string]OrganizationUnit{
+		"org-2": {ID: "org-2", TenantID: "tenant-2", Status: "active"},
+	}}
+	service := NewService(repository, &database.Transactor{}, nil)
+	_, err := service.AddMembership(t.Context(), "tenant-1", "user-1", "org-2")
+	var appErr *apperror.Error
+	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInvalidArgument {
+		t.Fatalf("AddMembership() error = %v", err)
+	}
+}
+
 func TestSQLRepository_ListMembershipsAppliesTenantUserAndStatusFilters(t *testing.T) {
 	t.Parallel()
 	db, mock, err := sqlmock.New()

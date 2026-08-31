@@ -164,8 +164,12 @@ func (s *Service) Update(ctx context.Context, id, name, status string, version i
 }
 
 func (s *Service) AddMembership(ctx context.Context, tenantID, userID, organizationUnitID string) (Membership, error) {
-	if strings.TrimSpace(tenantID) == "" || strings.TrimSpace(userID) == "" {
+	tenantID, userID, organizationUnitID = strings.TrimSpace(tenantID), strings.TrimSpace(userID), strings.TrimSpace(organizationUnitID)
+	if tenantID == "" || userID == "" {
 		return Membership{}, apperror.Invalid("tenant_id and user_id are required", nil)
+	}
+	if err := s.validateMembershipOrganization(ctx, tenantID, organizationUnitID); err != nil {
+		return Membership{}, err
 	}
 	fields, err := audit.New(ctx, s.now())
 	if err != nil {
@@ -241,6 +245,7 @@ func (s *Service) ListTenants(ctx context.Context, keyword, status string, page,
 	return Page{Tenants: items, Total: total, Page: page, PageSize: pageSize}, translate(err)
 }
 func (s *Service) UpdateMembership(ctx context.Context, id, status, organizationUnitID string, version int64) (Membership, error) {
+	id, organizationUnitID = strings.TrimSpace(id), strings.TrimSpace(organizationUnitID)
 	if id == "" || version < 1 || !validMembershipStatus(status) {
 		return Membership{}, apperror.Invalid("invalid membership update", nil)
 	}
@@ -251,6 +256,9 @@ func (s *Service) UpdateMembership(ctx context.Context, id, status, organization
 	current, err := s.repository.GetMembership(ctx, id)
 	if err != nil {
 		return Membership{}, translate(err)
+	}
+	if err := s.validateMembershipOrganization(ctx, current.TenantID, organizationUnitID); err != nil {
+		return Membership{}, err
 	}
 	value := Membership{ID: id, Status: status, PrimaryOrganizationUnitID: organizationUnitID, Version: version, UpdatedAt: now, UpdatedBy: actor}
 	event, err := newOutboxEvent(ctx, "platform.tenant.membership.changed.v1", "platform.tenant.v1.MembershipChanged", id, current.TenantID, now, &tenantv1.MembershipChangedEvent{MembershipId: id, TenantId: current.TenantID, UserId: current.UserID, PreviousStatus: membershipStatusEvent(current.Status), CurrentStatus: membershipStatusEvent(status)})
@@ -266,6 +274,20 @@ func (s *Service) UpdateMembership(ctx context.Context, id, status, organization
 		return Membership{}, translate(err)
 	}
 	return s.repository.GetMembership(ctx, id)
+}
+
+func (s *Service) validateMembershipOrganization(ctx context.Context, tenantID, organizationUnitID string) error {
+	if organizationUnitID == "" {
+		return nil
+	}
+	organization, err := s.repository.GetOrganizationUnit(ctx, organizationUnitID)
+	if err != nil {
+		return translate(err)
+	}
+	if organization.TenantID != tenantID || organization.Status != "active" {
+		return apperror.Invalid("primary organization unit must be active in this tenant", nil)
+	}
+	return nil
 }
 
 func (s *Service) CreateOrganizationUnit(ctx context.Context, tenantID, parentID, code, name string) (OrganizationUnit, error) {
