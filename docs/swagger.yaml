@@ -75,6 +75,28 @@ definitions:
     - expires_in_seconds
     - tenant_id
     type: object
+  httptransport.CreateOrganizationUnitRequest:
+    properties:
+      code:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: string
+      tenant_id:
+        type: string
+    required:
+    - code
+    - name
+    - tenant_id
+    type: object
+  httptransport.GetOrganizationUnitRequest:
+    properties:
+      organization_unit_id:
+        type: string
+    required:
+    - organization_unit_id
+    type: object
   httptransport.GetQuotaRequest:
     properties:
       key:
@@ -108,6 +130,13 @@ definitions:
         type: integer
       page_size:
         type: integer
+      tenant_id:
+        type: string
+    required:
+    - tenant_id
+    type: object
+  httptransport.ListOrganizationUnitsRequest:
+    properties:
       tenant_id:
         type: string
     required:
@@ -194,6 +223,24 @@ definitions:
     - status
     - version
     type: object
+  httptransport.UpdateOrganizationUnitRequest:
+    properties:
+      name:
+        type: string
+      organization_unit_id:
+        type: string
+      parent_id:
+        type: string
+      status:
+        type: string
+      version:
+        type: integer
+    required:
+    - name
+    - organization_unit_id
+    - status
+    - version
+    type: object
   tenant.Group:
     properties:
       code:
@@ -253,6 +300,33 @@ definitions:
       page_size:
         type: integer
       total:
+        type: integer
+    type: object
+  tenant.OrganizationUnit:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: string
+      path:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      version:
         type: integer
     type: object
   tenant.Quota:
@@ -534,6 +608,120 @@ paths:
       summary: Return the authenticated subject
       tags:
       - authentication
+  /api/v1/organization-units/create:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Organization unit
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.CreateOrganizationUnitRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/tenant.OrganizationUnit'
+              type: object
+      security:
+      - Bearer: []
+      summary: Create an organization unit
+      tags:
+      - organization-units
+  /api/v1/organization-units/get:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Organization unit ID
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.GetOrganizationUnitRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/tenant.OrganizationUnit'
+              type: object
+      security:
+      - Bearer: []
+      summary: Get an organization unit
+      tags:
+      - organization-units
+  /api/v1/organization-units/list:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.ListOrganizationUnitsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  items:
+                    $ref: '#/definitions/tenant.OrganizationUnit'
+                  type: array
+              type: object
+      security:
+      - Bearer: []
+      summary: List a tenant's organization units
+      tags:
+      - organization-units
+  /api/v1/organization-units/update:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Organization unit and current version
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.UpdateOrganizationUnitRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/tenant.OrganizationUnit'
+              type: object
+      security:
+      - Bearer: []
+      summary: Update or move an organization unit using optimistic locking
+      tags:
+      - organization-units
   /api/v1/quotas/consume:
     post:
       consumes:

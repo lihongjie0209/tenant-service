@@ -84,6 +84,9 @@ type UpdateOrganizationUnitRequest struct {
 type ListOrganizationUnitsRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
 }
+type OrganizationUnitsResponseBody struct {
+	OrganizationUnits []tenantdomain.OrganizationUnit `json:"organization_units"`
+}
 type CreateInvitationRequest struct {
 	TenantID         string `json:"tenant_id" binding:"required"`
 	Email            string `json:"email" binding:"required"`
@@ -346,6 +349,16 @@ func (h *Handler) ListTenants(c *gin.Context) {
 	}
 	OK(c, value)
 }
+
+// CreateOrganizationUnit godoc
+// @Summary Create an organization unit
+// @Tags organization-units
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body CreateOrganizationUnitRequest true "Organization unit"
+// @Success 200 {object} Response{body=tenant.OrganizationUnit}
+// @Router /api/v1/organization-units/create [post]
 func (h *Handler) CreateOrganizationUnit(c *gin.Context) {
 	var request CreateOrganizationUnitRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -359,6 +372,16 @@ func (h *Handler) CreateOrganizationUnit(c *gin.Context) {
 	}
 	OK(c, value)
 }
+
+// GetOrganizationUnit godoc
+// @Summary Get an organization unit
+// @Tags organization-units
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body GetOrganizationUnitRequest true "Organization unit ID"
+// @Success 200 {object} Response{body=tenant.OrganizationUnit}
+// @Router /api/v1/organization-units/get [post]
 func (h *Handler) GetOrganizationUnit(c *gin.Context) {
 	var request GetOrganizationUnitRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -372,6 +395,16 @@ func (h *Handler) GetOrganizationUnit(c *gin.Context) {
 	}
 	OK(c, value)
 }
+
+// UpdateOrganizationUnit godoc
+// @Summary Update or move an organization unit using optimistic locking
+// @Tags organization-units
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body UpdateOrganizationUnitRequest true "Organization unit and current version"
+// @Success 200 {object} Response{body=tenant.OrganizationUnit}
+// @Router /api/v1/organization-units/update [post]
 func (h *Handler) UpdateOrganizationUnit(c *gin.Context) {
 	var request UpdateOrganizationUnitRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -385,6 +418,16 @@ func (h *Handler) UpdateOrganizationUnit(c *gin.Context) {
 	}
 	OK(c, value)
 }
+
+// ListOrganizationUnits godoc
+// @Summary List a tenant's organization units
+// @Tags organization-units
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body ListOrganizationUnitsRequest true "Tenant"
+// @Success 200 {object} Response{body=[]tenant.OrganizationUnit}
+// @Router /api/v1/organization-units/list [post]
 func (h *Handler) ListOrganizationUnits(c *gin.Context) {
 	var request ListOrganizationUnitsRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -396,7 +439,7 @@ func (h *Handler) ListOrganizationUnits(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, gin.H{"organization_units": value})
+	OK(c, OrganizationUnitsResponseBody{OrganizationUnits: value})
 }
 
 // CreateInvitation godoc
