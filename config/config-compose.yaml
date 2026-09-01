@@ -26,6 +26,14 @@ dictionary_provider:
   target: tenant-service:9090
 outbound:
   grpc:
+    identity:
+      target: identity-service:9090
+      timeout: 2s
+      allow_insecure_credentials: true
+      auth: {type: psk, token: local-system-test-psk-00000000000000000000}
+      retry: {max_attempts: 1, initial_backoff: 100ms, max_backoff: 500ms, methods: []}
+      breaker: {enabled: true, failure_threshold: 5, open_timeout: 30s}
+      tls: {enabled: false}
     service-registry-service:
       target: service-registry-service:9090
       timeout: 5s

@@ -62,6 +62,7 @@ func NewServer(lc fx.Lifecycle, cfg config.Config, handler *Handler, authService
 	api.POST("/version", handler.Version)
 	api.POST("/me", handler.Me)
 	api.POST("/tenants/create", handler.CreateTenant)
+	api.POST("/tenants/select", handler.SelectTenant)
 	api.POST("/tenants/get", handler.GetTenant)
 	api.POST("/tenants/update", handler.UpdateTenant)
 	api.POST("/tenants/list", handler.ListTenants)

@@ -16,6 +16,9 @@ func TestNew_DependencyGraph(t *testing.T) {
 		Log:  config.Log{Level: "error", Format: "json", File: filepath.Join(t.TempDir(), "app.log"), MaxSizeMB: 1, MaxBackups: 1, MaxAgeDays: 1},
 		JWT:  config.JWT{Issuer: "test", TTL: time.Hour},
 		Cron: config.Cron{Timezone: "UTC"},
+		Outbound: config.Outbound{GRPC: map[string]config.GRPCUpstream{
+			"identity": {Target: "passthrough:///identity-test", Timeout: time.Second},
+		}},
 	}
 	application := New(cfg)
 	if err := application.Err(); err != nil {

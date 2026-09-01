@@ -36,7 +36,7 @@ func TestTenantHTTPRequirementCoverageAndSelfServiceExclusions(t *testing.T) {
 			t.Fatalf("route %q requirement = %+v, %v", route, requirement, ok)
 		}
 	}
-	for _, route := range []string{"/api/v1/tenants/create", "/api/v1/tenants/list-by-user", "/api/v1/invitations/accept", "/api/v1/version", "/api/v1/me"} {
+	for _, route := range []string{"/api/v1/tenants/create", "/api/v1/tenants/select", "/api/v1/tenants/list-by-user", "/api/v1/invitations/accept", "/api/v1/version", "/api/v1/me"} {
 		if _, ok := tenantHTTPRequirement(route); ok {
 			t.Fatalf("self-service route %q must not require an existing tenant membership decision", route)
 		}

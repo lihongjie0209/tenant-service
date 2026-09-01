@@ -1,6 +1,7 @@
 package httptransport
 
 import (
+	"errors"
 	"log/slog"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/lihongjie0209/tenant-service/internal/apperror"
 	"github.com/lihongjie0209/tenant-service/internal/buildinfo"
 	"github.com/lihongjie0209/tenant-service/internal/health"
+	"github.com/lihongjie0209/tenant-service/internal/identityclient"
 	tenant "github.com/lihongjie0209/tenant-service/internal/tenant"
 )
 
@@ -17,10 +19,11 @@ type Handler struct {
 	health *health.Service
 
 	tenants *tenant.Service
+	issuer  identityclient.Issuer
 }
 
-func NewHandler(healthService *health.Service, tenantService *tenant.Service, logger *slog.Logger) *Handler {
-	return &Handler{health: healthService, tenants: tenantService, logger: logger}
+func NewHandler(healthService *health.Service, tenantService *tenant.Service, issuer *identityclient.Client, logger *slog.Logger) *Handler {
+	return &Handler{health: healthService, tenants: tenantService, issuer: issuer, logger: logger}
 }
 
 type MeResponseBody struct {
@@ -31,6 +34,16 @@ type CreateTenantRequest struct {
 	Code        string `json:"code" binding:"required"`
 	Name        string `json:"name" binding:"required"`
 	OwnerUserID string `json:"owner_user_id" binding:"required"`
+}
+type SelectTenantRequest struct {
+	TenantID string `json:"tenant_id" binding:"required"`
+}
+type SelectTenantResponseBody struct {
+	AccessToken  string    `json:"access_token"`
+	TokenType    string    `json:"token_type"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	TenantID     string    `json:"tenant_id"`
+	MembershipID string    `json:"membership_id"`
 }
 type GetTenantRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
@@ -283,6 +296,41 @@ func (h *Handler) CreateTenant(c *gin.Context) {
 		return
 	}
 	OK(c, gin.H{"tenant": created, "owner_membership": owner})
+}
+
+// SelectTenant godoc
+// @Summary Validate the current user's membership and exchange a tenant-scoped access token
+// @Tags tenants
+// @Security Bearer
+// @Accept json
+// @Produce json
+// @Param request body SelectTenantRequest true "Tenant selection"
+// @Success 200 {object} Response{body=SelectTenantResponseBody}
+// @Failure 403 {object} Response "Code 20003: inactive or missing membership"
+// @Failure 503 {object} Response "Code 50003: identity service unavailable"
+// @Router /api/v1/tenants/select [post]
+func (h *Handler) SelectTenant(c *gin.Context) {
+	var request SelectTenantRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	identity, err := principal.Require(c.Request.Context())
+	if err != nil || identity.Type != principal.TypeUser || identity.ID == "" || identity.SessionID == "" {
+		Fail(c, h.logger, apperror.Unauthorized("an interactive user session is required"))
+		return
+	}
+	_, membership, valid := h.tenants.ValidateMembership(c.Request.Context(), identity.ID, request.TenantID)
+	if !valid || membership.ID == "" {
+		Fail(c, h.logger, apperror.Forbidden("active tenant membership is required"))
+		return
+	}
+	token, expiresAt, err := h.issuer.IssueTenantToken(c.Request.Context(), identity.ID, request.TenantID, membership.ID, identity.SessionID)
+	if err != nil {
+		Fail(c, h.logger, apperror.Unavailable("identity service is unavailable", errors.Join(identityclient.ErrUnavailable, err)))
+		return
+	}
+	OK(c, SelectTenantResponseBody{AccessToken: token, TokenType: "Bearer", ExpiresAt: expiresAt, TenantID: request.TenantID, MembershipID: membership.ID})
 }
 func (h *Handler) GetTenant(c *gin.Context) {
 	var request GetTenantRequest

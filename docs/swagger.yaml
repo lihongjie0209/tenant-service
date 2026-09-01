@@ -240,6 +240,26 @@ definitions:
     - invitation_id
     - version
     type: object
+  httptransport.SelectTenantRequest:
+    properties:
+      tenant_id:
+        type: string
+    required:
+    - tenant_id
+    type: object
+  httptransport.SelectTenantResponseBody:
+    properties:
+      access_token:
+        type: string
+      expires_at:
+        type: string
+      membership_id:
+        type: string
+      tenant_id:
+        type: string
+      token_type:
+        type: string
+    type: object
   httptransport.SetQuotaRequest:
     properties:
       key:
@@ -1034,6 +1054,43 @@ paths:
       security:
       - Bearer: []
       summary: List tenants
+      tags:
+      - tenants
+  /api/v1/tenants/select:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant selection
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.SelectTenantRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.SelectTenantResponseBody'
+              type: object
+        "403":
+          description: 'Code 20003: inactive or missing membership'
+          schema:
+            $ref: '#/definitions/httptransport.Response'
+        "503":
+          description: 'Code 50003: identity service unavailable'
+          schema:
+            $ref: '#/definitions/httptransport.Response'
+      security:
+      - Bearer: []
+      summary: Validate the current user's membership and exchange a tenant-scoped
+        access token
       tags:
       - tenants
   /api/v1/version:

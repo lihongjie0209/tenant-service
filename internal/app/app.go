@@ -12,6 +12,7 @@ import (
 	"github.com/lihongjie0209/tenant-service/internal/config"
 	"github.com/lihongjie0209/tenant-service/internal/database"
 	"github.com/lihongjie0209/tenant-service/internal/idempotency"
+	"github.com/lihongjie0209/tenant-service/internal/identityclient"
 	"github.com/lihongjie0209/tenant-service/internal/logging"
 	"github.com/lihongjie0209/tenant-service/internal/migration"
 	"github.com/lihongjie0209/tenant-service/internal/observability"
@@ -40,6 +41,7 @@ func New(cfg config.Config) *fx.App {
 		EventBusModule,
 		fx.Provide(observability.NewMetrics),
 		outbound.Module,
+		fx.Provide(identityclient.New),
 		fx.Provide(authorization.New),
 		DictionaryProviderModule,
 		scheduler.Module,

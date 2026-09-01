@@ -447,6 +447,17 @@ func TestService_AcceptInvitationRejectsDifferentUser(t *testing.T) {
 	}
 }
 
+func TestService_ListUserTenantsRejectsDifferentUser(t *testing.T) {
+	t.Parallel()
+	service := NewService(&fakeRepository{}, &database.Transactor{}, nil)
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "user-1", Type: principal.TypeUser})
+	_, err := service.ListUserTenants(ctx, "user-2", 1, 20)
+	var appErr *apperror.Error
+	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeForbidden {
+		t.Fatalf("ListUserTenants() error = %v, want forbidden", err)
+	}
+}
+
 func TestService_ConsumeQuotaHonorsLimit(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {

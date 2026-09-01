@@ -985,6 +985,68 @@
                 }
             }
         },
+        "/api/v1/tenants/select": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tenants"
+                ],
+                "summary": "Validate the current user's membership and exchange a tenant-scoped access token",
+                "parameters": [
+                    {
+                        "description": "Tenant selection",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.SelectTenantRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.SelectTenantResponseBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "403": {
+                        "description": "Code 20003: inactive or missing membership",
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.Response"
+                        }
+                    },
+                    "503": {
+                        "description": "Code 50003: identity service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/version": {
             "post": {
                 "produces": [
@@ -1460,6 +1522,37 @@
                 },
                 "version": {
                     "type": "integer"
+                }
+            }
+        },
+        "httptransport.SelectTenantRequest": {
+            "type": "object",
+            "required": [
+                "tenant_id"
+            ],
+            "properties": {
+                "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httptransport.SelectTenantResponseBody": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "membership_id": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "type": "string"
                 }
             }
         },

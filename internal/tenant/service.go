@@ -198,6 +198,17 @@ func (s *Service) ValidateMembership(ctx context.Context, userID, tenantID strin
 	return t, m, err == nil
 }
 func (s *Service) ListUserTenants(ctx context.Context, userID string, page, pageSize int) (Page, error) {
+	userID = strings.TrimSpace(userID)
+	identity, err := principal.Require(ctx)
+	if err != nil {
+		return Page{}, apperror.Unauthorized("authenticated actor is required")
+	}
+	if userID == "" || (identity.Type == principal.TypeUser && identity.ID != userID) {
+		return Page{}, apperror.Forbidden("users may only list their own tenants")
+	}
+	if identity.Type != principal.TypeUser && identity.Type != principal.TypeServiceAccount && identity.Type != principal.TypeSystem {
+		return Page{}, apperror.Forbidden("tenant list access denied")
+	}
 	if page <= 0 {
 		page = 1
 	}
