@@ -75,6 +75,9 @@ func TestHTTPAndGRPCEndToEnd(t *testing.T) {
 		Cron:          config.Cron{Enabled: false, Timezone: "UTC"},
 		User:          config.User{CacheTTL: time.Minute, LockTTL: 10 * time.Second, LockRetryDelay: 20 * time.Millisecond},
 		Idempotency:   config.Idempotency{Enabled: true, ProcessingTTL: 30 * time.Second, ResultTTL: time.Hour, FailureTTL: time.Minute},
+		Outbound: config.Outbound{GRPC: map[string]config.GRPCUpstream{
+			"identity": {Target: freeAddress(t), Timeout: 2 * time.Second},
+		}},
 	}
 	application := app.New(cfg)
 	if err := application.Start(ctx); err != nil {
