@@ -284,7 +284,33 @@ func (h *Handler) Version(c *gin.Context) { OK(c, buildinfo.Current()) }
 // @Param request body DeleteUserRequest true "User ID and current version"
 // @Success 200 {object} Response
 
+// CreateTenant godoc
+// @Summary Create a tenant owned by the authenticated user
+// @Tags tenants
+// @Security Bearer
+// @Accept json
+// @Produce json
+// @Param request body CreateTenantRequest true "Tenant"
+// @Success 200 {object} Response
+// @Router /api/v1/tenants/create [post]
 func (h *Handler) CreateTenant(c *gin.Context) {
+	h.createTenant(c)
+}
+
+// CreateManagedTenant godoc
+// @Summary Create a tenant for a target owner as a platform administrator
+// @Tags tenants
+// @Security Bearer
+// @Accept json
+// @Produce json
+// @Param request body CreateTenantRequest true "Tenant and target owner"
+// @Success 200 {object} Response
+// @Router /api/v1/tenants/manage/create [post]
+func (h *Handler) CreateManagedTenant(c *gin.Context) {
+	h.createTenant(c)
+}
+
+func (h *Handler) createTenant(c *gin.Context) {
 	var request CreateTenantRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		Fail(c, h.logger, apperror.Invalid("invalid json request", err))

@@ -26,7 +26,7 @@ func (a authorizationStub) Authorize(context.Context, principal.Principal, platf
 func TestTenantHTTPRequirementCoverageAndSelfServiceExclusions(t *testing.T) {
 	t.Parallel()
 	protected := []string{
-		"/api/v1/tenants/get", "/api/v1/tenants/update", "/api/v1/tenants/list", "/api/v1/memberships/add", "/api/v1/memberships/update", "/api/v1/memberships/list",
+		"/api/v1/tenants/manage/create", "/api/v1/tenants/get", "/api/v1/tenants/update", "/api/v1/tenants/list", "/api/v1/memberships/add", "/api/v1/memberships/update", "/api/v1/memberships/list",
 		"/api/v1/organization-units/create", "/api/v1/organization-units/get", "/api/v1/organization-units/update", "/api/v1/organization-units/list",
 		"/api/v1/invitations/create", "/api/v1/invitations/revoke", "/api/v1/invitations/list", "/api/v1/groups/create", "/api/v1/groups/update", "/api/v1/groups/member-add", "/api/v1/groups/member-remove", "/api/v1/groups/members/list", "/api/v1/groups/list",
 		"/api/v1/quotas/get", "/api/v1/quotas/list", "/api/v1/quotas/set", "/api/v1/quotas/consume",
@@ -45,7 +45,7 @@ func TestTenantHTTPRequirementCoverageAndSelfServiceExclusions(t *testing.T) {
 
 func TestTenantHTTPRequirementSeparatesPlatformDirectoryFromTenantResources(t *testing.T) {
 	t.Parallel()
-	for _, route := range []string{"/api/v1/tenants/get", "/api/v1/tenants/update", "/api/v1/tenants/list"} {
+	for _, route := range []string{"/api/v1/tenants/manage/create", "/api/v1/tenants/get", "/api/v1/tenants/update", "/api/v1/tenants/list"} {
 		requirement, _ := tenantHTTPRequirement(route)
 		if requirement.Scope != platformauthz.ScopePlatform {
 			t.Fatalf("route %q scope = %v, want platform", route, requirement.Scope)

@@ -62,7 +62,8 @@ func (s *Service) Create(ctx context.Context, code, name, ownerUserID string) (T
 	}
 	switch identity.Type {
 	case principal.TypeUser:
-		if identity.ID != ownerUserID {
+		platformAllowed, _ := ctx.Value(platformAdministrationKey{}).(bool)
+		if identity.ID != ownerUserID && !platformAllowed {
 			return Tenant{}, Membership{}, apperror.Forbidden("users may only create a tenant for themselves")
 		}
 	case principal.TypeServiceAccount, principal.TypeSystem:

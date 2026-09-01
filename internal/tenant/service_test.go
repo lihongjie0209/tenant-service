@@ -63,6 +63,25 @@ func TestCreateTenantRejectsDifferentOwnerForUser(t *testing.T) {
 	}
 }
 
+func TestCreateTenantAllowsDifferentOwnerAfterPlatformDecision(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	mock.ExpectBegin()
+	mock.ExpectCommit()
+	service := NewService(&fakeRepository{}, database.NewTransactor(sqlx.NewDb(db, "sqlmock")), nil)
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "platform-admin", Type: principal.TypeUser})
+	_, owner, err := service.Create(WithPlatformAdministration(ctx), "tenant", "Tenant", "user-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if owner.UserID != "user-2" {
+		t.Fatalf("owner user = %q", owner.UserID)
+	}
+}
+
 func (f *fakeRepository) CreateTenant(_ context.Context, _ sqlx.ExtContext, value Tenant) error {
 	f.tenant = value
 	return nil

@@ -97,6 +97,19 @@ definitions:
     - name
     - tenant_id
     type: object
+  httptransport.CreateTenantRequest:
+    properties:
+      code:
+        type: string
+      name:
+        type: string
+      owner_user_id:
+        type: string
+    required:
+    - code
+    - name
+    - owner_user_id
+    type: object
   httptransport.GetOrganizationUnitRequest:
     properties:
       organization_unit_id:
@@ -1033,6 +1046,29 @@ paths:
       summary: Create or update a tenant quota using optimistic locking
       tags:
       - quotas
+  /api/v1/tenants/create:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.CreateTenantRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httptransport.Response'
+      security:
+      - Bearer: []
+      summary: Create a tenant owned by the authenticated user
+      tags:
+      - tenants
   /api/v1/tenants/list:
     post:
       consumes:
@@ -1054,6 +1090,29 @@ paths:
       security:
       - Bearer: []
       summary: List tenants
+      tags:
+      - tenants
+  /api/v1/tenants/manage/create:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant and target owner
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.CreateTenantRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httptransport.Response'
+      security:
+      - Bearer: []
+      summary: Create a tenant for a target owner as a platform administrator
       tags:
       - tenants
   /api/v1/tenants/select:
