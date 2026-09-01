@@ -34,6 +34,35 @@ type fakeRepository struct {
 	organizations map[string]OrganizationUnit
 }
 
+func TestAuthorizeTenantBindsUserToJWTClaim(t *testing.T) {
+	t.Parallel()
+	userContext := principal.WithContext(t.Context(), principal.Principal{ID: "user-1", Type: principal.TypeUser, TenantID: "tenant-1"})
+	if err := authorizeTenant(userContext, "tenant-1"); err != nil {
+		t.Fatalf("matching tenant rejected: %v", err)
+	}
+	if err := authorizeTenant(userContext, "tenant-2"); err == nil {
+		t.Fatal("cross-tenant user request was accepted")
+	}
+	if err := authorizeTenant(WithPlatformAdministration(userContext), "tenant-2"); err != nil {
+		t.Fatalf("platform-authorized target rejected: %v", err)
+	}
+	serviceContext := principal.WithContext(t.Context(), principal.Principal{ID: "service-1", Type: principal.TypeServiceAccount})
+	if err := authorizeTenant(serviceContext, "tenant-2"); err != nil {
+		t.Fatalf("service orchestration rejected: %v", err)
+	}
+}
+
+func TestCreateTenantRejectsDifferentOwnerForUser(t *testing.T) {
+	t.Parallel()
+	service := &Service{}
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "user-1", Type: principal.TypeUser})
+	_, _, err := service.Create(ctx, "tenant", "Tenant", "user-2")
+	var appErr *apperror.Error
+	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeForbidden {
+		t.Fatalf("Create() error = %#v, want forbidden", err)
+	}
+}
+
 func (f *fakeRepository) CreateTenant(_ context.Context, _ sqlx.ExtContext, value Tenant) error {
 	f.tenant = value
 	return nil
@@ -195,7 +224,8 @@ func TestService_ListMemberships(t *testing.T) {
 	repository := &fakeRepository{membership: Membership{ID: "membership-1", TenantID: "tenant-1", UserID: "user-1", Status: "active"}}
 	service := NewService(repository, &database.Transactor{}, nil)
 
-	page, err := service.ListMemberships(t.Context(), "tenant-1", "user-1", "active", 0, 0)
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "service-1", Type: principal.TypeServiceAccount})
+	page, err := service.ListMemberships(ctx, "tenant-1", "user-1", "active", 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +249,8 @@ func TestService_ListMembershipsRejectsInvalidQuery(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := service.ListMemberships(t.Context(), test.tenantID, "", test.status, 1, test.pageSize)
+			ctx := principal.WithContext(t.Context(), principal.Principal{ID: "service-1", Type: principal.TypeServiceAccount})
+			_, err := service.ListMemberships(ctx, test.tenantID, "", test.status, 1, test.pageSize)
 			var appErr *apperror.Error
 			if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInvalidArgument {
 				t.Fatalf("ListMemberships() error = %v", err)
@@ -234,7 +265,8 @@ func TestService_AddMembershipRejectsOrganizationFromAnotherTenant(t *testing.T)
 		"org-2": {ID: "org-2", TenantID: "tenant-2", Status: "active"},
 	}}
 	service := NewService(repository, &database.Transactor{}, nil)
-	_, err := service.AddMembership(t.Context(), "tenant-1", "user-1", "org-2")
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "service-1", Type: principal.TypeServiceAccount})
+	_, err := service.AddMembership(ctx, "tenant-1", "user-1", "org-2")
 	var appErr *apperror.Error
 	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInvalidArgument {
 		t.Fatalf("AddMembership() error = %v", err)
@@ -282,7 +314,7 @@ func TestService_CreateInjectsAuditActor(t *testing.T) {
 	now := time.Date(2026, 8, 29, 20, 0, 0, 0, time.FixedZone("UTC+8", 8*60*60))
 	service.now = func() time.Time { return now }
 	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser})
-	created, owner, err := service.Create(ctx, " ACME ", "Acme", "user-1")
+	created, owner, err := service.Create(ctx, " ACME ", "Acme", "admin-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,11 +343,11 @@ func TestService_CreateReplaysIdempotentResult(t *testing.T) {
 	cfg := config.Config{Idempotency: config.Idempotency{Enabled: true, ProcessingTTL: time.Minute, ResultTTL: time.Hour, FailureTTL: time.Minute}}
 	service := NewRuntimeService(&fakeRepository{}, database.NewTransactor(sqlx.NewDb(db, "sqlmock")), nil, idempotency.New(client, cfg), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx := idempotency.WithContext(principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser}), "tenant-create-0001")
-	firstTenant, firstOwner, err := service.Create(ctx, "acme", "Acme", "user-1")
+	firstTenant, firstOwner, err := service.Create(ctx, "acme", "Acme", "admin-1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	secondTenant, secondOwner, err := service.Create(ctx, "acme", "Acme", "user-1")
+	secondTenant, secondOwner, err := service.Create(ctx, "acme", "Acme", "admin-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +368,7 @@ func TestService_UpdateMapsStaleVersion(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectRollback()
 	service := NewService(&fakeRepository{tenant: Tenant{ID: "tenant-1", Status: "active"}, updateErr: ErrStaleVersion}, database.NewTransactor(sqlx.NewDb(db, "sqlmock")), nil)
-	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser})
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser, TenantID: "tenant-1"})
 	_, err = service.Update(ctx, "tenant-1", "Acme", "active", 1)
 	var appErr *apperror.Error
 	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeStaleVersion {
@@ -373,7 +405,7 @@ func TestService_CreateOrganizationUnitBuildsMaterializedPath(t *testing.T) {
 	mock.ExpectCommit()
 	repository := &fakeRepository{tenant: Tenant{ID: "tenant-1", Status: "active"}}
 	service := NewService(repository, database.NewTransactor(sqlx.NewDb(db, "sqlmock")), nil)
-	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser})
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser, TenantID: "tenant-1"})
 	created, err := service.CreateOrganizationUnit(ctx, "tenant-1", "", "HEAD", "Headquarters")
 	if err != nil {
 		t.Fatal(err)
@@ -388,7 +420,7 @@ func TestService_UpdateOrganizationUnitRejectsCycle(t *testing.T) {
 	child := OrganizationUnit{ID: "child", TenantID: "tenant-1", ParentID: "root", Path: "/root/child/", Status: "active", Version: 1}
 	repository := &fakeRepository{organizations: map[string]OrganizationUnit{"root": current, "child": child}}
 	service := NewService(repository, &database.Transactor{}, nil)
-	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser})
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser, TenantID: "tenant-1"})
 	_, err := service.UpdateOrganizationUnit(ctx, "root", "child", "Root", "active", 1)
 	var appErr *apperror.Error
 	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInvalidArgument {
@@ -421,7 +453,7 @@ func TestService_CreateInvitationStoresOnlyTokenHash(t *testing.T) {
 	mock.ExpectCommit()
 	repository := &fakeRepository{tenant: Tenant{ID: "tenant-1", Status: "active"}}
 	service := NewService(repository, database.NewTransactor(sqlx.NewDb(db, "sqlmock")), nil)
-	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser})
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser, TenantID: "tenant-1"})
 	invitation, token, err := service.CreateInvitation(ctx, "tenant-1", "MEMBER@example.com", 24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
@@ -487,7 +519,8 @@ func TestService_ListQuotas(t *testing.T) {
 	t.Parallel()
 	repository := &fakeRepository{quota: Quota{TenantID: "tenant-1", Key: "users", Limit: 100, Used: 2, Version: 1}}
 	service := NewService(repository, &database.Transactor{}, nil)
-	page, err := service.ListQuotas(t.Context(), " tenant-1 ", " user ", 0, 0)
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "service-1", Type: principal.TypeServiceAccount})
+	page, err := service.ListQuotas(ctx, " tenant-1 ", " user ", 0, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -510,7 +543,7 @@ func TestService_AddGroupMemberReactivatesRemovedAssignment(t *testing.T) {
 		groupMember: GroupMember{ID: "group-member-1", TenantID: "tenant-1", GroupID: "group-1", MembershipID: "membership-1", Status: "removed", Version: 2},
 	}
 	service := NewService(repository, database.NewTransactor(sqlx.NewDb(db, "sqlmock")), nil)
-	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser})
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser, TenantID: "tenant-1"})
 	if err := service.AddGroupMember(ctx, "group-1", "membership-1"); err != nil {
 		t.Fatal(err)
 	}
@@ -530,7 +563,8 @@ func TestService_AddGroupMemberIsIdempotentWhenActive(t *testing.T) {
 		groupMember: GroupMember{ID: "group-member-1", TenantID: "tenant-1", GroupID: "group-1", MembershipID: "membership-1", Status: "active", Version: 1},
 	}
 	service := NewService(repository, &database.Transactor{}, nil)
-	if err := service.AddGroupMember(t.Context(), "group-1", "membership-1"); err != nil {
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "service-1", Type: principal.TypeServiceAccount})
+	if err := service.AddGroupMember(ctx, "group-1", "membership-1"); err != nil {
 		t.Fatal(err)
 	}
 }

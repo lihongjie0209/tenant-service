@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	platformauthz "github.com/lihongjie0209/microservice-platform-go/authz"
 	tenantv1 "github.com/lihongjie0209/platform-protos/gen/go/platform/tenant/v1"
 	"github.com/lihongjie0209/tenant-service/internal/auth"
 	"github.com/lihongjie0209/tenant-service/internal/config"
@@ -36,6 +37,23 @@ func TestTenantGRPCRequirementCoverageAndInternalExclusions(t *testing.T) {
 	}
 	if _, ok := tenantGRPCRequirement(false)(protected[0]); ok {
 		t.Fatal("disabled authorization must not call the decision service")
+	}
+}
+
+func TestTenantGRPCRequirementSeparatesPlatformDirectoryFromTenantResources(t *testing.T) {
+	t.Parallel()
+	resolve := tenantGRPCRequirement(true)
+	for _, method := range []string{tenantv1.TenantService_GetTenant_FullMethodName, tenantv1.TenantService_ListTenants_FullMethodName, tenantv1.TenantService_UpdateTenant_FullMethodName} {
+		requirement, _ := resolve(method)
+		if requirement.Scope != platformauthz.ScopePlatform {
+			t.Fatalf("method %q scope = %v, want platform", method, requirement.Scope)
+		}
+	}
+	for _, method := range []string{tenantv1.TenantService_ListMemberships_FullMethodName, tenantv1.TenantService_ListOrganizationUnits_FullMethodName, tenantv1.TenantService_ListGroups_FullMethodName} {
+		requirement, _ := resolve(method)
+		if requirement.Scope != platformauthz.ScopePrincipal {
+			t.Fatalf("method %q scope = %v, want principal-derived", method, requirement.Scope)
+		}
 	}
 }
 

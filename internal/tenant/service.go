@@ -56,6 +56,19 @@ func (s *Service) Create(ctx context.Context, code, name, ownerUserID string) (T
 	if code == "" || name == "" || ownerUserID == "" {
 		return Tenant{}, Membership{}, apperror.Invalid("code, name and owner_user_id are required", nil)
 	}
+	identity, err := principal.Require(ctx)
+	if err != nil {
+		return Tenant{}, Membership{}, apperror.Unauthorized("authenticated actor is required")
+	}
+	switch identity.Type {
+	case principal.TypeUser:
+		if identity.ID != ownerUserID {
+			return Tenant{}, Membership{}, apperror.Forbidden("users may only create a tenant for themselves")
+		}
+	case principal.TypeServiceAccount, principal.TypeSystem:
+	default:
+		return Tenant{}, Membership{}, apperror.Forbidden("tenant creation is not allowed for this principal")
+	}
 	key, hasKey := idempotency.FromContext(ctx)
 	if !hasKey {
 		return s.createOnce(ctx, code, name, ownerUserID)
@@ -132,6 +145,9 @@ func (s *Service) createOnce(ctx context.Context, code, name, ownerUserID string
 
 func (s *Service) Get(ctx context.Context, id string) (Tenant, error) {
 	value, err := s.repository.GetTenant(ctx, strings.TrimSpace(id))
+	if err == nil {
+		err = authorizeTenant(ctx, value.ID)
+	}
 	return value, translate(err)
 }
 
@@ -146,6 +162,9 @@ func (s *Service) Update(ctx context.Context, id, name, status string, version i
 	current, err := s.repository.GetTenant(ctx, id)
 	if err != nil {
 		return Tenant{}, translate(err)
+	}
+	if err := authorizeTenant(ctx, current.ID); err != nil {
+		return Tenant{}, err
 	}
 	value := Tenant{ID: id, Name: strings.TrimSpace(name), Status: status, Version: version, UpdatedAt: now, UpdatedBy: actor}
 	event, err := newOutboxEvent(ctx, "platform.tenant.tenant.status-changed.v1", "platform.tenant.v1.TenantStatusChanged", id, id, now, &tenantv1.TenantStatusChangedEvent{TenantId: id, PreviousStatus: tenantStatusEvent(current.Status), CurrentStatus: tenantStatusEvent(status)})
@@ -167,6 +186,9 @@ func (s *Service) AddMembership(ctx context.Context, tenantID, userID, organizat
 	tenantID, userID, organizationUnitID = strings.TrimSpace(tenantID), strings.TrimSpace(userID), strings.TrimSpace(organizationUnitID)
 	if tenantID == "" || userID == "" {
 		return Membership{}, apperror.Invalid("tenant_id and user_id are required", nil)
+	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return Membership{}, err
 	}
 	if err := s.validateMembershipOrganization(ctx, tenantID, organizationUnitID); err != nil {
 		return Membership{}, err
@@ -191,6 +213,9 @@ func (s *Service) AddMembership(ctx context.Context, tenantID, userID, organizat
 
 func (s *Service) GetMembership(ctx context.Context, id string) (Membership, error) {
 	value, err := s.repository.GetMembership(ctx, id)
+	if err == nil {
+		err = authorizeTenant(ctx, value.TenantID)
+	}
 	return value, translate(err)
 }
 func (s *Service) ValidateMembership(ctx context.Context, userID, tenantID string) (Tenant, Membership, bool) {
@@ -226,6 +251,9 @@ func (s *Service) ListMemberships(ctx context.Context, tenantID, userID, status 
 	if tenantID == "" || (status != "" && !validMembershipStatus(status)) {
 		return MembershipPage{}, apperror.Invalid("invalid membership query", nil)
 	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return MembershipPage{}, err
+	}
 	if page <= 0 {
 		page = 1
 	}
@@ -242,6 +270,9 @@ func (s *Service) ListTenants(ctx context.Context, keyword, status string, page,
 	keyword, status = strings.TrimSpace(keyword), strings.TrimSpace(status)
 	if status != "" && !validTenantStatus(status) {
 		return Page{}, apperror.Invalid("invalid tenant status", nil)
+	}
+	if err := authorizePlatformAdministration(ctx); err != nil {
+		return Page{}, err
 	}
 	if page <= 0 {
 		page = 1
@@ -267,6 +298,9 @@ func (s *Service) UpdateMembership(ctx context.Context, id, status, organization
 	current, err := s.repository.GetMembership(ctx, id)
 	if err != nil {
 		return Membership{}, translate(err)
+	}
+	if err := authorizeTenant(ctx, current.TenantID); err != nil {
+		return Membership{}, err
 	}
 	if err := s.validateMembershipOrganization(ctx, current.TenantID, organizationUnitID); err != nil {
 		return Membership{}, err
@@ -306,6 +340,9 @@ func (s *Service) CreateOrganizationUnit(ctx context.Context, tenantID, parentID
 	if tenantID == "" || code == "" || name == "" {
 		return OrganizationUnit{}, apperror.Invalid("tenant_id, code and name are required", nil)
 	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return OrganizationUnit{}, err
+	}
 	if _, err := s.repository.GetTenant(ctx, tenantID); err != nil {
 		return OrganizationUnit{}, translate(err)
 	}
@@ -341,12 +378,18 @@ func (s *Service) CreateOrganizationUnit(ctx context.Context, tenantID, parentID
 
 func (s *Service) GetOrganizationUnit(ctx context.Context, id string) (OrganizationUnit, error) {
 	value, err := s.repository.GetOrganizationUnit(ctx, strings.TrimSpace(id))
+	if err == nil {
+		err = authorizeTenant(ctx, value.TenantID)
+	}
 	return value, translate(err)
 }
 
 func (s *Service) ListOrganizationUnits(ctx context.Context, tenantID string) ([]OrganizationUnit, error) {
 	if strings.TrimSpace(tenantID) == "" {
 		return nil, apperror.Invalid("tenant_id is required", nil)
+	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return nil, err
 	}
 	items, err := s.repository.ListOrganizationUnits(ctx, tenantID)
 	return items, translate(err)
@@ -359,6 +402,9 @@ func (s *Service) UpdateOrganizationUnit(ctx context.Context, id, parentID, name
 	current, err := s.repository.GetOrganizationUnit(ctx, id)
 	if err != nil {
 		return OrganizationUnit{}, translate(err)
+	}
+	if err := authorizeTenant(ctx, current.TenantID); err != nil {
+		return OrganizationUnit{}, err
 	}
 	err = s.withOrganizationLock(ctx, current.TenantID, func() error {
 		current, err = s.repository.GetOrganizationUnit(ctx, id)
@@ -415,6 +461,9 @@ func (s *Service) ResolveOrganizationScope(ctx context.Context, membershipID str
 	if err != nil {
 		return nil, translate(err)
 	}
+	if err := authorizeTenant(ctx, membership.TenantID); err != nil {
+		return nil, err
+	}
 	if membership.PrimaryOrganizationUnitID == "" {
 		return []string{}, nil
 	}
@@ -438,6 +487,46 @@ func (s *Service) withOrganizationLock(ctx context.Context, tenantID string, ope
 	unlockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 	defer cancel()
 	return errors.Join(operationErr, lock.Unlock(unlockCtx))
+}
+
+type platformAdministrationKey struct{}
+
+// WithPlatformAdministration records a successful authorization decision in
+// the reserved platform namespace. Domain methods still validate every target
+// tenant and never infer this capability from request data.
+func WithPlatformAdministration(ctx context.Context) context.Context {
+	return context.WithValue(ctx, platformAdministrationKey{}, true)
+}
+
+func authorizePlatformAdministration(ctx context.Context) error {
+	identity, err := principal.Require(ctx)
+	if err != nil {
+		return apperror.Unauthorized("authenticated actor is required")
+	}
+	if identity.Type == principal.TypeServiceAccount || identity.Type == principal.TypeSystem {
+		return nil
+	}
+	if allowed, _ := ctx.Value(platformAdministrationKey{}).(bool); identity.Type == principal.TypeUser && allowed {
+		return nil
+	}
+	return apperror.Forbidden("platform administration is required")
+}
+
+func authorizeTenant(ctx context.Context, tenantID string) error {
+	identity, err := principal.Require(ctx)
+	if err != nil {
+		return apperror.Unauthorized("authenticated actor is required")
+	}
+	if identity.Type == principal.TypeServiceAccount || identity.Type == principal.TypeSystem {
+		return nil
+	}
+	if allowed, _ := ctx.Value(platformAdministrationKey{}).(bool); identity.Type == principal.TypeUser && allowed {
+		return nil
+	}
+	if identity.Type != principal.TypeUser || strings.TrimSpace(identity.TenantID) == "" || identity.TenantID != strings.TrimSpace(tenantID) {
+		return apperror.Forbidden("tenant access denied")
+	}
+	return nil
 }
 
 func translate(err error) error {

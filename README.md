@@ -124,13 +124,16 @@ Redsync does not start a hidden renewal goroutine. Long-running jobs must call `
 - `GET /metrics`: Prometheus metrics when enabled
 - `POST /api/v1/version`: version, commit, build time, start time and uptime
 - `POST /api/v1/users/create|get|list|update|delete`: JWT-protected CRUD example
-- `POST /api/v1/tenants/*`: 租户创建、查询、更新和用户租户列表
+- `POST /api/v1/tenants/create|select|list-by-user`: 创建自己的租户、选择已验证成员关系以及查询当前用户租户
+- `POST /api/v1/tenants/get|update|list`: `__platform__` 作用域的全局租户目录管理
 - `POST /api/v1/memberships/*`: 成员加入与乐观锁更新
 - `POST /api/v1/organization-units/*`: 组织树维护与查询
 - `POST /api/v1/invitations/*`: 邀请创建、当前用户接受、撤销和分页列表
 - `POST /api/v1/groups/*`: 成员组维护和组成员增删
 - `POST /api/v1/quotas/*`: 配额设置、查询和原子消费
 - `GET /swagger/index.html`: generated Swagger UI when enabled
+
+Every tenant-owned domain method binds user requests to the trusted JWT `tenant_id`, including ID-based mutations after loading the persisted resource. Replacing a request-body tenant or resource ID cannot cross the selected tenant. Explicitly authorized platform directory calls carry a process-local marker into the domain layer; service/system principals retain separately authorized orchestration access. A user creating a tenant must be its owner, while invitation acceptance may establish a new membership without a pre-existing tenant scope.
 
 Every request accepts or generates `X-Request-ID`; it is returned in the response header and JSON envelope and correlated with OpenTelemetry trace/span IDs in logs. Request deadlines are propagated through `Request.Context`, so context-aware SQL and Redis calls stop after client cancellation or timeout.
 

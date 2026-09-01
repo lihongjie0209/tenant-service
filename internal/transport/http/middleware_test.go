@@ -43,6 +43,22 @@ func TestTenantHTTPRequirementCoverageAndSelfServiceExclusions(t *testing.T) {
 	}
 }
 
+func TestTenantHTTPRequirementSeparatesPlatformDirectoryFromTenantResources(t *testing.T) {
+	t.Parallel()
+	for _, route := range []string{"/api/v1/tenants/get", "/api/v1/tenants/update", "/api/v1/tenants/list"} {
+		requirement, _ := tenantHTTPRequirement(route)
+		if requirement.Scope != platformauthz.ScopePlatform {
+			t.Fatalf("route %q scope = %v, want platform", route, requirement.Scope)
+		}
+	}
+	for _, route := range []string{"/api/v1/memberships/list", "/api/v1/organization-units/list", "/api/v1/groups/list"} {
+		requirement, _ := tenantHTTPRequirement(route)
+		if requirement.Scope != platformauthz.ScopePrincipal {
+			t.Fatalf("route %q scope = %v, want principal-derived", route, requirement.Scope)
+		}
+	}
+}
+
 func TestAuthorizationFailsClosedAndClassifiesOutage(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)

@@ -26,6 +26,9 @@ func (s *Service) CreateInvitation(ctx context.Context, tenantID, email string, 
 	if tenantID == "" || parseErr != nil || address.Address != email || expiresIn <= 0 || expiresIn > 30*24*time.Hour {
 		return Invitation{}, "", apperror.Invalid("invalid tenant invitation", parseErr)
 	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return Invitation{}, "", err
+	}
 	if _, err := s.repository.GetTenant(ctx, tenantID); err != nil {
 		return Invitation{}, "", translate(err)
 	}
@@ -113,6 +116,9 @@ func (s *Service) RevokeInvitation(ctx context.Context, id string, version int64
 	if err != nil {
 		return Invitation{}, translate(err)
 	}
+	if err := authorizeTenant(ctx, value.TenantID); err != nil {
+		return Invitation{}, err
+	}
 	if value.Status != "pending" {
 		return Invitation{}, apperror.Conflict("only pending invitations can be revoked", nil)
 	}
@@ -140,6 +146,9 @@ func (s *Service) RevokeInvitation(ctx context.Context, id string, version int64
 }
 
 func (s *Service) ListInvitations(ctx context.Context, tenantID string, page, pageSize int) (InvitationPage, error) {
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return InvitationPage{}, err
+	}
 	if page <= 0 {
 		page = 1
 	}
@@ -157,6 +166,9 @@ func (s *Service) CreateGroup(ctx context.Context, tenantID, code, name string) 
 	tenantID, code, name = strings.TrimSpace(tenantID), strings.ToLower(strings.TrimSpace(code)), strings.TrimSpace(name)
 	if tenantID == "" || code == "" || name == "" {
 		return Group{}, apperror.Invalid("tenant_id, code and name are required", nil)
+	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return Group{}, err
 	}
 	fields, err := audit.New(ctx, s.now())
 	if err != nil {
@@ -183,6 +195,9 @@ func (s *Service) UpdateGroup(ctx context.Context, id, name, status string, vers
 	if err != nil {
 		return Group{}, translate(err)
 	}
+	if err := authorizeTenant(ctx, value.TenantID); err != nil {
+		return Group{}, err
+	}
 	actor, now, err := audit.UpdatedBy(ctx, s.now())
 	if err != nil {
 		return Group{}, apperror.Unauthorized("authenticated actor is required")
@@ -206,6 +221,9 @@ func (s *Service) UpdateGroup(ctx context.Context, id, name, status string, vers
 	return s.repository.GetGroup(ctx, id)
 }
 func (s *Service) ListGroups(ctx context.Context, tenantID string) ([]Group, error) {
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return nil, err
+	}
 	values, err := s.repository.ListGroups(ctx, tenantID)
 	return values, translate(err)
 }
@@ -213,6 +231,9 @@ func (s *Service) AddGroupMember(ctx context.Context, groupID, membershipID stri
 	group, err := s.repository.GetGroup(ctx, groupID)
 	if err != nil {
 		return translate(err)
+	}
+	if err := authorizeTenant(ctx, group.TenantID); err != nil {
+		return err
 	}
 	membership, err := s.repository.GetMembership(ctx, membershipID)
 	if err != nil {
@@ -256,8 +277,12 @@ func (s *Service) ListGroupMembers(ctx context.Context, groupID string) ([]Group
 	if groupID == "" {
 		return nil, apperror.Invalid("group_id is required", nil)
 	}
-	if _, err := s.repository.GetGroup(ctx, groupID); err != nil {
+	group, err := s.repository.GetGroup(ctx, groupID)
+	if err != nil {
 		return nil, translate(err)
+	}
+	if err := authorizeTenant(ctx, group.TenantID); err != nil {
+		return nil, err
 	}
 	values, err := s.repository.ListGroupMembers(ctx, groupID)
 	return values, translate(err)
@@ -266,6 +291,9 @@ func (s *Service) RemoveGroupMember(ctx context.Context, groupID, membershipID s
 	value, err := s.repository.GetGroupMember(ctx, groupID, membershipID)
 	if err != nil {
 		return translate(err)
+	}
+	if err := authorizeTenant(ctx, value.TenantID); err != nil {
+		return err
 	}
 	actor, now, err := audit.UpdatedBy(ctx, s.now())
 	if err != nil {
@@ -290,6 +318,9 @@ func (s *Service) RemoveGroupMember(ctx context.Context, groupID, membershipID s
 }
 
 func (s *Service) GetQuota(ctx context.Context, tenantID, key string) (Quota, error) {
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return Quota{}, err
+	}
 	value, err := s.repository.GetQuota(ctx, tenantID, key)
 	return value, translate(err)
 }
@@ -297,6 +328,9 @@ func (s *Service) ListQuotas(ctx context.Context, tenantID, keyword string, page
 	tenantID, keyword = strings.TrimSpace(tenantID), strings.TrimSpace(keyword)
 	if tenantID == "" {
 		return QuotaPage{}, apperror.Invalid("tenant_id is required", nil)
+	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return QuotaPage{}, err
 	}
 	if page <= 0 {
 		page = 1
@@ -313,6 +347,9 @@ func (s *Service) ListQuotas(ctx context.Context, tenantID, keyword string, page
 func (s *Service) SetQuota(ctx context.Context, tenantID, key string, limit, expectedVersion int64) (Quota, error) {
 	if tenantID == "" || key == "" || limit < 0 || expectedVersion < 0 {
 		return Quota{}, apperror.Invalid("invalid quota", nil)
+	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return Quota{}, err
 	}
 	fields, err := audit.New(ctx, s.now())
 	if err != nil {
@@ -360,6 +397,9 @@ func (s *Service) SetQuota(ctx context.Context, tenantID, key string, limit, exp
 func (s *Service) ConsumeQuota(ctx context.Context, tenantID, key string, amount int64) (Quota, bool, error) {
 	if tenantID == "" || key == "" || amount <= 0 {
 		return Quota{}, false, apperror.Invalid("invalid quota consumption", nil)
+	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return Quota{}, false, err
 	}
 	var allowed bool
 	var consumed Quota
