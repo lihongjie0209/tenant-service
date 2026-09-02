@@ -3,6 +3,7 @@ package tenant
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"regexp"
@@ -105,6 +106,21 @@ func (f *fakeRepository) ListUserTenants(context.Context, string, int, int) ([]T
 }
 func (f *fakeRepository) ListMemberships(context.Context, string, string, string, int, int) ([]Membership, int64, error) {
 	return []Membership{f.membership}, 1, nil
+}
+func (f *fakeRepository) BatchGetMemberships(context.Context, string, []string) ([]Membership, error) {
+	return []Membership{f.membership}, nil
+}
+
+type capturingBatchMembershipRepository struct {
+	fakeRepository
+	tenantID string
+	ids      []string
+}
+
+func (r *capturingBatchMembershipRepository) BatchGetMemberships(_ context.Context, tenantID string, ids []string) ([]Membership, error) {
+	r.tenantID = tenantID
+	r.ids = append([]string(nil), ids...)
+	return []Membership{r.membership}, nil
 }
 func (f *fakeRepository) ListTenants(context.Context, string, string, int, int) ([]Tenant, int64, error) {
 	return nil, 0, nil
@@ -278,6 +294,36 @@ func TestService_ListMembershipsRejectsInvalidQuery(t *testing.T) {
 	}
 }
 
+func TestService_BatchGetMembershipsValidatesAndDeduplicatesIDs(t *testing.T) {
+	t.Parallel()
+	repository := &capturingBatchMembershipRepository{fakeRepository: fakeRepository{membership: Membership{ID: "membership-1"}}}
+	service := NewService(repository, &database.Transactor{}, nil)
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "service-1", Type: principal.TypeServiceAccount})
+
+	items, err := service.BatchGetMemberships(ctx, " tenant-1 ", []string{" membership-1 ", "membership-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || len(repository.ids) != 1 || repository.ids[0] != "membership-1" || repository.tenantID != "tenant-1" {
+		t.Fatalf("BatchGetMemberships() items=%+v tenant=%q ids=%v", items, repository.tenantID, repository.ids)
+	}
+
+	_, err = service.BatchGetMemberships(ctx, "tenant-1", []string{""})
+	var appErr *apperror.Error
+	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInvalidArgument {
+		t.Fatalf("empty membership ID error = %#v", err)
+	}
+
+	tooMany := make([]string, 101)
+	for index := range tooMany {
+		tooMany[index] = fmt.Sprintf("membership-%d", index)
+	}
+	_, err = service.BatchGetMemberships(ctx, "tenant-1", tooMany)
+	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInvalidArgument {
+		t.Fatalf("too many membership IDs error = %#v", err)
+	}
+}
+
 func TestService_AddMembershipRejectsOrganizationFromAnotherTenant(t *testing.T) {
 	t.Parallel()
 	repository := &fakeRepository{organizations: map[string]OrganizationUnit{
@@ -314,6 +360,32 @@ func TestSQLRepository_ListMembershipsAppliesTenantUserAndStatusFilters(t *testi
 	}
 	if total != 1 || len(items) != 1 || items[0].ID != "membership-1" {
 		t.Fatalf("ListMemberships() items=%+v total=%d", items, total)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSQLRepository_BatchGetMembershipsScopesIDsToTenant(t *testing.T) {
+	t.Parallel()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	repository := &SQLRepository{db: sqlx.NewDb(db, "sqlmock")}
+	query := "SELECT " + membershipSelectColumns + " FROM memberships WHERE tenant_id = ? AND id IN (?, ?) ORDER BY id"
+	now := time.Date(2026, 8, 31, 22, 0, 0, 0, time.FixedZone("UTC+8", 8*60*60))
+	mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs("tenant-1", "membership-1", "membership-2").WillReturnRows(
+		sqlmock.NewRows([]string{"id", "tenant_id", "user_id", "status", "primary_organization_unit_id", "joined_at", "version", "created_at", "updated_at", "created_by", "updated_by"}).
+			AddRow("membership-1", "tenant-1", "user-1", "active", "", now, 1, now, now, "admin-1", "admin-1"),
+	)
+	items, err := repository.BatchGetMemberships(t.Context(), "tenant-1", []string{"membership-1", "membership-2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].TenantID != "tenant-1" {
+		t.Fatalf("BatchGetMemberships() = %+v", items)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)

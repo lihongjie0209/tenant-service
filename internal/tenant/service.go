@@ -267,6 +267,37 @@ func (s *Service) ListMemberships(ctx context.Context, tenantID, userID, status 
 	items, total, err := s.repository.ListMemberships(ctx, tenantID, userID, status, pageSize, (page-1)*pageSize)
 	return MembershipPage{Memberships: items, Total: total, Page: page, PageSize: pageSize}, translate(err)
 }
+
+func (s *Service) BatchGetMemberships(ctx context.Context, tenantID string, ids []string) ([]Membership, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, apperror.Invalid("tenant_id is required", nil)
+	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return nil, err
+	}
+	unique := make([]string, 0, len(ids))
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return nil, apperror.Invalid("membership_ids must not contain empty values", nil)
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return []Membership{}, nil
+	}
+	if len(unique) > 100 {
+		return nil, apperror.Invalid("membership_ids must not contain more than 100 values", nil)
+	}
+	items, err := s.repository.BatchGetMemberships(ctx, tenantID, unique)
+	return items, translate(err)
+}
 func (s *Service) ListTenants(ctx context.Context, keyword, status string, page, pageSize int) (Page, error) {
 	keyword, status = strings.TrimSpace(keyword), strings.TrimSpace(status)
 	if status != "" && !validTenantStatus(status) {

@@ -25,6 +25,7 @@ type Repository interface {
 	ValidateMembership(context.Context, string, string) (Tenant, Membership, error)
 	ListUserTenants(context.Context, string, int, int) ([]Tenant, int64, error)
 	ListMemberships(context.Context, string, string, string, int, int) ([]Membership, int64, error)
+	BatchGetMemberships(context.Context, string, []string) ([]Membership, error)
 	ListTenants(context.Context, string, string, int, int) ([]Tenant, int64, error)
 	UpdateMembership(context.Context, sqlx.ExtContext, Membership) error
 	AddOutbox(context.Context, sqlx.ExtContext, OutboxEvent) error
@@ -150,6 +151,18 @@ func (r *SQLRepository) ListMemberships(ctx context.Context, tenantID, userID, s
 		return nil, 0, fmt.Errorf("list memberships: %w", err)
 	}
 	return items, total, nil
+}
+
+func (r *SQLRepository) BatchGetMemberships(ctx context.Context, tenantID string, ids []string) ([]Membership, error) {
+	query, args, err := sqlx.In("SELECT "+membershipSelectColumns+" FROM memberships WHERE tenant_id = ? AND id IN (?) ORDER BY id", tenantID, ids)
+	if err != nil {
+		return nil, fmt.Errorf("build batch membership query: %w", err)
+	}
+	items := make([]Membership, 0, len(ids))
+	if err := r.db.SelectContext(ctx, &items, r.db.Rebind(query), args...); err != nil {
+		return nil, fmt.Errorf("batch get memberships: %w", err)
+	}
+	return items, nil
 }
 
 func (r *SQLRepository) ListTenants(ctx context.Context, keyword, status string, limit, offset int) ([]Tenant, int64, error) {

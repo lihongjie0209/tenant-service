@@ -113,6 +113,10 @@ type MembershipPageBody struct {
 	PageSize    int              `json:"page_size"`
 }
 
+type MembershipBatchBody struct {
+	Memberships []MembershipBody `json:"memberships"`
+}
+
 type InvitationPageBody struct {
 	Invitations []InvitationBody `json:"invitations"`
 	Total       int64            `json:"total"`
@@ -196,6 +200,10 @@ func tenantPageBody(value tenant.Page) TenantPageBody {
 
 func membershipPageBody(value tenant.MembershipPage) MembershipPageBody {
 	return MembershipPageBody{Memberships: mapBodies(value.Memberships, membershipBody), Total: value.Total, Page: value.Page, PageSize: value.PageSize}
+}
+
+func membershipBatchBody(values []tenant.Membership) MembershipBatchBody {
+	return MembershipBatchBody{Memberships: mapBodies(values, membershipBody)}
 }
 
 func invitationPageBody(value tenant.InvitationPage) InvitationPageBody {

@@ -60,6 +60,18 @@ definitions:
     - tenant_id
     - user_id
     type: object
+  httptransport.BatchGetMembershipsRequest:
+    properties:
+      membership_ids:
+        items:
+          type: string
+        type: array
+      tenant_id:
+        type: string
+    required:
+    - membership_ids
+    - tenant_id
+    type: object
   httptransport.ConsumeQuotaRequest:
     properties:
       amount:
@@ -366,6 +378,13 @@ definitions:
     properties:
       subject:
         type: string
+    type: object
+  httptransport.MembershipBatchBody:
+    properties:
+      memberships:
+        items:
+          $ref: '#/definitions/httptransport.MembershipBody'
+        type: array
     type: object
   httptransport.MembershipBody:
     properties:
@@ -987,6 +1006,34 @@ paths:
       security:
       - Bearer: []
       summary: Add a tenant membership
+      tags:
+      - memberships
+  /api/v1/memberships/batch-get:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant and membership IDs (maximum 100)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.BatchGetMembershipsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.MembershipBatchBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: Get a bounded set of tenant memberships by ID
       tags:
       - memberships
   /api/v1/memberships/list:

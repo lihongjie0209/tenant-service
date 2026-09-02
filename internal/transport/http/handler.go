@@ -74,6 +74,10 @@ type ListMembershipsRequest struct {
 	Page     int    `json:"page"`
 	PageSize int    `json:"page_size"`
 }
+type BatchGetMembershipsRequest struct {
+	TenantID      string   `json:"tenant_id" binding:"required"`
+	MembershipIDs []string `json:"membership_ids" binding:"required"`
+}
 type ListUserTenantsRequest struct {
 	UserID   string `json:"user_id" binding:"required"`
 	Page     int    `json:"page"`
@@ -423,6 +427,29 @@ func (h *Handler) ListMemberships(c *gin.Context) {
 		return
 	}
 	OK(c, membershipPageBody(value))
+}
+
+// BatchGetMemberships godoc
+// @Summary Get a bounded set of tenant memberships by ID
+// @Tags memberships
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body BatchGetMembershipsRequest true "Tenant and membership IDs (maximum 100)"
+// @Success 200 {object} Response{body=MembershipBatchBody}
+// @Router /api/v1/memberships/batch-get [post]
+func (h *Handler) BatchGetMemberships(c *gin.Context) {
+	var request BatchGetMembershipsRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	items, err := h.tenants.BatchGetMemberships(c.Request.Context(), request.TenantID, request.MembershipIDs)
+	if err != nil {
+		Fail(c, h.logger, err)
+		return
+	}
+	OK(c, membershipBatchBody(items))
 }
 
 // ListUserTenants godoc

@@ -607,6 +607,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/memberships/batch-get": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "memberships"
+                ],
+                "summary": "Get a bounded set of tenant memberships by ID",
+                "parameters": [
+                    {
+                        "description": "Tenant and membership IDs (maximum 100)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.BatchGetMembershipsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.MembershipBatchBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/memberships/list": {
             "post": {
                 "security": [
@@ -1675,6 +1725,24 @@ const docTemplate = `{
                 }
             }
         },
+        "httptransport.BatchGetMembershipsRequest": {
+            "type": "object",
+            "required": [
+                "membership_ids",
+                "tenant_id"
+            ],
+            "properties": {
+                "membership_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
         "httptransport.ConsumeQuotaRequest": {
             "type": "object",
             "required": [
@@ -2140,6 +2208,17 @@ const docTemplate = `{
             "properties": {
                 "subject": {
                     "type": "string"
+                }
+            }
+        },
+        "httptransport.MembershipBatchBody": {
+            "type": "object",
+            "properties": {
+                "memberships": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httptransport.MembershipBody"
+                    }
                 }
             }
         },

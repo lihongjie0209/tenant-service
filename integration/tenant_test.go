@@ -70,6 +70,10 @@ func TestTenantRepositoryCompatibility(t *testing.T) {
 			if err != nil || foundTenant.ID != tenantValue.ID || foundMembership.ID != membership.ID {
 				t.Fatalf("ValidateMembership() = (%+v, %+v, %v)", foundTenant, foundMembership, err)
 			}
+			batch, err := repository.BatchGetMemberships(ctx, tenantValue.ID, []string{membership.ID, uuid.NewString()})
+			if err != nil || len(batch) != 1 || batch[0].ID != membership.ID {
+				t.Fatalf("BatchGetMemberships() = (%+v, %v)", batch, err)
+			}
 			tenantValue.Name, tenantValue.UpdatedAt = "Acme 2", now.Add(time.Second)
 			if err := repository.UpdateTenant(ctx, db, tenantValue); err != nil {
 				t.Fatal(err)
