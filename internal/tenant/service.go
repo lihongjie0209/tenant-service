@@ -77,7 +77,7 @@ func (s *Service) Create(ctx context.Context, code, name, ownerUserID string) (T
 	if s.idempotency == nil || !s.idempotency.Enabled() {
 		return Tenant{}, Membership{}, apperror.Unavailable("idempotency is unavailable", nil)
 	}
-	fingerprint := sha256.Sum256([]byte("tenant.create\x00" + code + "\x00" + name + "\x00" + ownerUserID))
+	fingerprint := sha256.Sum256([]byte("tenant.create\x00" + string(identity.Type) + "\x00" + identity.ID + "\x00" + code + "\x00" + name + "\x00" + ownerUserID))
 	decision, err := s.idempotency.Begin(ctx, key, hex.EncodeToString(fingerprint[:]))
 	if err != nil {
 		return Tenant{}, Membership{}, apperror.Unavailable("idempotency is unavailable", err)

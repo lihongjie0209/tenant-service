@@ -32,6 +32,34 @@ rate_limit:
   enabled: true
 idempotency:
   enabled: true
+  http_paths:
+    - /api/v1/tenants/update
+    - /api/v1/memberships/add
+    - /api/v1/memberships/update
+    - /api/v1/organization-units/create
+    - /api/v1/organization-units/update
+    - /api/v1/invitations/accept
+    - /api/v1/invitations/revoke
+    - /api/v1/groups/create
+    - /api/v1/groups/update
+    - /api/v1/groups/member-add
+    - /api/v1/groups/member-remove
+    - /api/v1/quotas/set
+    - /api/v1/quotas/consume
+  grpc_methods:
+    - /platform.tenant.v1.TenantService/UpdateTenant
+    - /platform.tenant.v1.TenantService/AddMembership
+    - /platform.tenant.v1.TenantService/UpdateMembership
+    - /platform.tenant.v1.TenantService/CreateOrganizationUnit
+    - /platform.tenant.v1.TenantService/UpdateOrganizationUnit
+    - /platform.tenant.v1.TenantService/AcceptInvitation
+    - /platform.tenant.v1.TenantService/RevokeInvitation
+    - /platform.tenant.v1.TenantService/CreateGroup
+    - /platform.tenant.v1.TenantService/UpdateGroup
+    - /platform.tenant.v1.TenantService/AddGroupMember
+    - /platform.tenant.v1.TenantService/RemoveGroupMember
+    - /platform.tenant.v1.TenantService/SetQuota
+    - /platform.tenant.v1.TenantService/ConsumeQuota
 observability:
   metrics_enabled: true
   tracing_enabled: false
