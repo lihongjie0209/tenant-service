@@ -105,7 +105,7 @@ type ListOrganizationUnitsRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
 }
 type OrganizationUnitsResponseBody struct {
-	OrganizationUnits []tenant.OrganizationUnit `json:"organization_units"`
+	OrganizationUnits []OrganizationUnitBody `json:"organization_units"`
 }
 type CreateInvitationRequest struct {
 	TenantID         string `json:"tenant_id" binding:"required"`
@@ -113,8 +113,8 @@ type CreateInvitationRequest struct {
 	ExpiresInSeconds int64  `json:"expires_in_seconds" binding:"required,gt=0"`
 }
 type CreateInvitationResponseBody struct {
-	Invitation tenant.Invitation `json:"invitation"`
-	Token      string            `json:"token"`
+	Invitation InvitationBody `json:"invitation"`
+	Token      string         `json:"token"`
 }
 type AcceptInvitationRequest struct {
 	Token string `json:"token" binding:"required"`
@@ -152,7 +152,7 @@ type ListGroupMembersRequest struct {
 	GroupID string `json:"group_id" binding:"required"`
 }
 type GroupMembersResponseBody struct {
-	GroupMembers []tenant.GroupMember `json:"group_members"`
+	GroupMembers []GroupMemberBody `json:"group_members"`
 }
 type ListGroupsRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
@@ -291,7 +291,7 @@ func (h *Handler) Version(c *gin.Context) { OK(c, buildinfo.Current()) }
 // @Accept json
 // @Produce json
 // @Param request body CreateTenantRequest true "Tenant"
-// @Success 200 {object} Response
+// @Success 200 {object} Response{body=CreateTenantResponseBody}
 // @Router /api/v1/tenants/create [post]
 func (h *Handler) CreateTenant(c *gin.Context) {
 	h.createTenant(c)
@@ -304,7 +304,7 @@ func (h *Handler) CreateTenant(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body CreateTenantRequest true "Tenant and target owner"
-// @Success 200 {object} Response
+// @Success 200 {object} Response{body=CreateTenantResponseBody}
 // @Router /api/v1/tenants/manage/create [post]
 func (h *Handler) CreateManagedTenant(c *gin.Context) {
 	h.createTenant(c)
@@ -321,7 +321,7 @@ func (h *Handler) createTenant(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, gin.H{"tenant": created, "owner_membership": owner})
+	OK(c, CreateTenantResponseBody{Tenant: tenantBody(created), OwnerMembership: membershipBody(owner)})
 }
 
 // SelectTenant godoc
@@ -358,6 +358,16 @@ func (h *Handler) SelectTenant(c *gin.Context) {
 	}
 	OK(c, SelectTenantResponseBody{AccessToken: token, TokenType: "Bearer", ExpiresAt: expiresAt, TenantID: request.TenantID, MembershipID: membership.ID})
 }
+
+// GetTenant godoc
+// @Summary Get a tenant
+// @Tags tenants
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body GetTenantRequest true "Tenant"
+// @Success 200 {object} Response{body=TenantBody}
+// @Router /api/v1/tenants/get [post]
 func (h *Handler) GetTenant(c *gin.Context) {
 	var request GetTenantRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -369,8 +379,18 @@ func (h *Handler) GetTenant(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, tenantBody(value))
 }
+
+// UpdateTenant godoc
+// @Summary Update a tenant using optimistic locking
+// @Tags tenants
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body UpdateTenantRequest true "Tenant and current version"
+// @Success 200 {object} Response{body=TenantBody}
+// @Router /api/v1/tenants/update [post]
 func (h *Handler) UpdateTenant(c *gin.Context) {
 	var request UpdateTenantRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -382,8 +402,18 @@ func (h *Handler) UpdateTenant(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, tenantBody(value))
 }
+
+// AddMembership godoc
+// @Summary Add a tenant membership
+// @Tags memberships
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body AddMembershipRequest true "Membership"
+// @Success 200 {object} Response{body=MembershipBody}
+// @Router /api/v1/memberships/add [post]
 func (h *Handler) AddMembership(c *gin.Context) {
 	var request AddMembershipRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -395,8 +425,18 @@ func (h *Handler) AddMembership(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, membershipBody(value))
 }
+
+// UpdateMembership godoc
+// @Summary Update a tenant membership using optimistic locking
+// @Tags memberships
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body UpdateMembershipRequest true "Membership and current version"
+// @Success 200 {object} Response{body=MembershipBody}
+// @Router /api/v1/memberships/update [post]
 func (h *Handler) UpdateMembership(c *gin.Context) {
 	var request UpdateMembershipRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -408,7 +448,7 @@ func (h *Handler) UpdateMembership(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, membershipBody(value))
 }
 
 // ListMemberships godoc
@@ -418,7 +458,7 @@ func (h *Handler) UpdateMembership(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body ListMembershipsRequest true "Tenant, filters and pagination"
-// @Success 200 {object} Response{body=tenant.MembershipPage}
+// @Success 200 {object} Response{body=MembershipPageBody}
 // @Router /api/v1/memberships/list [post]
 func (h *Handler) ListMemberships(c *gin.Context) {
 	var request ListMembershipsRequest
@@ -431,8 +471,18 @@ func (h *Handler) ListMemberships(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, membershipPageBody(value))
 }
+
+// ListUserTenants godoc
+// @Summary List tenant memberships for a user
+// @Tags memberships
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body ListUserTenantsRequest true "User and pagination"
+// @Success 200 {object} Response{body=TenantPageBody}
+// @Router /api/v1/tenants/list-by-user [post]
 func (h *Handler) ListUserTenants(c *gin.Context) {
 	var request ListUserTenantsRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -444,7 +494,7 @@ func (h *Handler) ListUserTenants(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, tenantPageBody(value))
 }
 
 // ListTenants godoc
@@ -454,7 +504,7 @@ func (h *Handler) ListUserTenants(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body ListTenantsRequest true "Filters and pagination"
-// @Success 200 {object} Response
+// @Success 200 {object} Response{body=TenantPageBody}
 // @Router /api/v1/tenants/list [post]
 func (h *Handler) ListTenants(c *gin.Context) {
 	var request ListTenantsRequest
@@ -467,7 +517,7 @@ func (h *Handler) ListTenants(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, tenantPageBody(value))
 }
 
 // CreateOrganizationUnit godoc
@@ -477,7 +527,7 @@ func (h *Handler) ListTenants(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body CreateOrganizationUnitRequest true "Organization unit"
-// @Success 200 {object} Response{body=tenant.OrganizationUnit}
+// @Success 200 {object} Response{body=OrganizationUnitBody}
 // @Router /api/v1/organization-units/create [post]
 func (h *Handler) CreateOrganizationUnit(c *gin.Context) {
 	var request CreateOrganizationUnitRequest
@@ -490,7 +540,7 @@ func (h *Handler) CreateOrganizationUnit(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, organizationUnitBody(value))
 }
 
 // GetOrganizationUnit godoc
@@ -500,7 +550,7 @@ func (h *Handler) CreateOrganizationUnit(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body GetOrganizationUnitRequest true "Organization unit ID"
-// @Success 200 {object} Response{body=tenant.OrganizationUnit}
+// @Success 200 {object} Response{body=OrganizationUnitBody}
 // @Router /api/v1/organization-units/get [post]
 func (h *Handler) GetOrganizationUnit(c *gin.Context) {
 	var request GetOrganizationUnitRequest
@@ -513,7 +563,7 @@ func (h *Handler) GetOrganizationUnit(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, organizationUnitBody(value))
 }
 
 // UpdateOrganizationUnit godoc
@@ -523,7 +573,7 @@ func (h *Handler) GetOrganizationUnit(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body UpdateOrganizationUnitRequest true "Organization unit and current version"
-// @Success 200 {object} Response{body=tenant.OrganizationUnit}
+// @Success 200 {object} Response{body=OrganizationUnitBody}
 // @Router /api/v1/organization-units/update [post]
 func (h *Handler) UpdateOrganizationUnit(c *gin.Context) {
 	var request UpdateOrganizationUnitRequest
@@ -536,7 +586,7 @@ func (h *Handler) UpdateOrganizationUnit(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, organizationUnitBody(value))
 }
 
 // ListOrganizationUnits godoc
@@ -546,7 +596,7 @@ func (h *Handler) UpdateOrganizationUnit(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body ListOrganizationUnitsRequest true "Tenant"
-// @Success 200 {object} Response{body=[]tenant.OrganizationUnit}
+// @Success 200 {object} Response{body=OrganizationUnitsResponseBody}
 // @Router /api/v1/organization-units/list [post]
 func (h *Handler) ListOrganizationUnits(c *gin.Context) {
 	var request ListOrganizationUnitsRequest
@@ -559,7 +609,7 @@ func (h *Handler) ListOrganizationUnits(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, OrganizationUnitsResponseBody{OrganizationUnits: value})
+	OK(c, OrganizationUnitsResponseBody{OrganizationUnits: mapBodies(value, organizationUnitBody)})
 }
 
 // CreateInvitation godoc
@@ -582,7 +632,7 @@ func (h *Handler) CreateInvitation(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, CreateInvitationResponseBody{Invitation: value, Token: token})
+	OK(c, CreateInvitationResponseBody{Invitation: invitationBody(value), Token: token})
 }
 
 // AcceptInvitation godoc
@@ -592,7 +642,7 @@ func (h *Handler) CreateInvitation(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body AcceptInvitationRequest true "Invitation token"
-// @Success 200 {object} Response
+// @Success 200 {object} Response{body=AcceptInvitationResponseBody}
 // @Router /api/v1/invitations/accept [post]
 func (h *Handler) AcceptInvitation(c *gin.Context) {
 	var request AcceptInvitationRequest
@@ -610,7 +660,7 @@ func (h *Handler) AcceptInvitation(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, gin.H{"invitation": value, "membership": membership})
+	OK(c, AcceptInvitationResponseBody{Invitation: invitationBody(value), Membership: membershipBody(membership)})
 }
 
 // RevokeInvitation godoc
@@ -620,7 +670,7 @@ func (h *Handler) AcceptInvitation(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body RevokeInvitationRequest true "Invitation and current version"
-// @Success 200 {object} Response{body=tenant.Invitation}
+// @Success 200 {object} Response{body=InvitationBody}
 // @Router /api/v1/invitations/revoke [post]
 func (h *Handler) RevokeInvitation(c *gin.Context) {
 	var request RevokeInvitationRequest
@@ -633,7 +683,7 @@ func (h *Handler) RevokeInvitation(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, invitationBody(value))
 }
 
 // ListInvitations godoc
@@ -643,7 +693,7 @@ func (h *Handler) RevokeInvitation(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body ListInvitationsRequest true "Tenant and pagination"
-// @Success 200 {object} Response{body=tenant.InvitationPage}
+// @Success 200 {object} Response{body=InvitationPageBody}
 // @Router /api/v1/invitations/list [post]
 func (h *Handler) ListInvitations(c *gin.Context) {
 	var request ListInvitationsRequest
@@ -656,7 +706,7 @@ func (h *Handler) ListInvitations(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, invitationPageBody(value))
 }
 
 // CreateGroup godoc
@@ -666,7 +716,7 @@ func (h *Handler) ListInvitations(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body CreateGroupRequest true "Group"
-// @Success 200 {object} Response{body=tenant.Group}
+// @Success 200 {object} Response{body=GroupBody}
 // @Router /api/v1/groups/create [post]
 func (h *Handler) CreateGroup(c *gin.Context) {
 	var request CreateGroupRequest
@@ -679,7 +729,7 @@ func (h *Handler) CreateGroup(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, groupBody(value))
 }
 
 // UpdateGroup godoc
@@ -689,7 +739,7 @@ func (h *Handler) CreateGroup(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body UpdateGroupRequest true "Group and current version"
-// @Success 200 {object} Response{body=tenant.Group}
+// @Success 200 {object} Response{body=GroupBody}
 // @Router /api/v1/groups/update [post]
 func (h *Handler) UpdateGroup(c *gin.Context) {
 	var request UpdateGroupRequest
@@ -702,7 +752,7 @@ func (h *Handler) UpdateGroup(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, groupBody(value))
 }
 
 // AddGroupMember godoc
@@ -712,7 +762,7 @@ func (h *Handler) UpdateGroup(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body GroupMemberRequest true "Group membership"
-// @Success 200 {object} Response
+// @Success 200 {object} Response{body=AddGroupMemberResponseBody}
 // @Router /api/v1/groups/member-add [post]
 func (h *Handler) AddGroupMember(c *gin.Context) {
 	var request GroupMemberRequest
@@ -724,7 +774,7 @@ func (h *Handler) AddGroupMember(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, gin.H{"added": true})
+	OK(c, AddGroupMemberResponseBody{Added: true})
 }
 
 // RemoveGroupMember godoc
@@ -734,7 +784,7 @@ func (h *Handler) AddGroupMember(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body RemoveGroupMemberRequest true "Group membership and current version"
-// @Success 200 {object} Response
+// @Success 200 {object} Response{body=RemoveGroupMemberResponseBody}
 // @Router /api/v1/groups/member-remove [post]
 func (h *Handler) RemoveGroupMember(c *gin.Context) {
 	var request RemoveGroupMemberRequest
@@ -746,7 +796,7 @@ func (h *Handler) RemoveGroupMember(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, gin.H{"removed": true})
+	OK(c, RemoveGroupMemberResponseBody{Removed: true})
 }
 
 // ListGroupMembers godoc
@@ -769,7 +819,7 @@ func (h *Handler) ListGroupMembers(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, GroupMembersResponseBody{GroupMembers: values})
+	OK(c, GroupMembersResponseBody{GroupMembers: mapBodies(values, groupMemberBody)})
 }
 
 // ListGroups godoc
@@ -779,7 +829,7 @@ func (h *Handler) ListGroupMembers(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body ListGroupsRequest true "Tenant"
-// @Success 200 {object} Response
+// @Success 200 {object} Response{body=GroupsResponseBody}
 // @Router /api/v1/groups/list [post]
 func (h *Handler) ListGroups(c *gin.Context) {
 	var request ListGroupsRequest
@@ -792,7 +842,7 @@ func (h *Handler) ListGroups(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, gin.H{"groups": value})
+	OK(c, GroupsResponseBody{Groups: mapBodies(value, groupBody)})
 }
 
 // GetQuota godoc
@@ -802,7 +852,7 @@ func (h *Handler) ListGroups(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body GetQuotaRequest true "Tenant quota key"
-// @Success 200 {object} Response{body=tenant.Quota}
+// @Success 200 {object} Response{body=QuotaBody}
 // @Router /api/v1/quotas/get [post]
 func (h *Handler) GetQuota(c *gin.Context) {
 	var request GetQuotaRequest
@@ -815,7 +865,7 @@ func (h *Handler) GetQuota(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, quotaBody(value))
 }
 
 // ListQuotas godoc
@@ -825,7 +875,7 @@ func (h *Handler) GetQuota(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body ListQuotasRequest true "Tenant, keyword and pagination"
-// @Success 200 {object} Response{body=tenant.QuotaPage}
+// @Success 200 {object} Response{body=QuotaPageBody}
 // @Router /api/v1/quotas/list [post]
 func (h *Handler) ListQuotas(c *gin.Context) {
 	var request ListQuotasRequest
@@ -838,7 +888,7 @@ func (h *Handler) ListQuotas(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, quotaPageBody(value))
 }
 
 // SetQuota godoc
@@ -848,7 +898,7 @@ func (h *Handler) ListQuotas(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body SetQuotaRequest true "Quota and current version; version 0 creates"
-// @Success 200 {object} Response{body=tenant.Quota}
+// @Success 200 {object} Response{body=QuotaBody}
 // @Router /api/v1/quotas/set [post]
 func (h *Handler) SetQuota(c *gin.Context) {
 	var request SetQuotaRequest
@@ -861,7 +911,7 @@ func (h *Handler) SetQuota(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, value)
+	OK(c, quotaBody(value))
 }
 
 // ConsumeQuota godoc
@@ -871,7 +921,7 @@ func (h *Handler) SetQuota(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param request body ConsumeQuotaRequest true "Quota consumption"
-// @Success 200 {object} Response
+// @Success 200 {object} Response{body=ConsumeQuotaResponseBody}
 // @Router /api/v1/quotas/consume [post]
 func (h *Handler) ConsumeQuota(c *gin.Context) {
 	var request ConsumeQuotaRequest
@@ -884,5 +934,5 @@ func (h *Handler) ConsumeQuota(c *gin.Context) {
 		Fail(c, h.logger, err)
 		return
 	}
-	OK(c, gin.H{"quota": value, "allowed": allowed})
+	OK(c, ConsumeQuotaResponseBody{Quota: quotaBody(value), Allowed: allowed})
 }

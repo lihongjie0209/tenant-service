@@ -55,7 +55,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/tenant.Group"
+                                            "$ref": "#/definitions/httptransport.GroupBody"
                                         }
                                     }
                                 }
@@ -97,7 +97,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.GroupsResponseBody"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -135,7 +147,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.AddGroupMemberResponseBody"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -173,7 +197,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.RemoveGroupMemberResponseBody"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -269,7 +305,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/tenant.Group"
+                                            "$ref": "#/definitions/httptransport.GroupBody"
                                         }
                                     }
                                 }
@@ -311,7 +347,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.AcceptInvitationResponseBody"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -407,7 +455,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/tenant.InvitationPage"
+                                            "$ref": "#/definitions/httptransport.InvitationPageBody"
                                         }
                                     }
                                 }
@@ -457,7 +505,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/tenant.Invitation"
+                                            "$ref": "#/definitions/httptransport.InvitationBody"
                                         }
                                     }
                                 }
@@ -509,6 +557,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/memberships/add": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "memberships"
+                ],
+                "summary": "Add a tenant membership",
+                "parameters": [
+                    {
+                        "description": "Membership",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.AddMembershipRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.MembershipBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/memberships/list": {
             "post": {
                 "security": [
@@ -549,7 +647,57 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/tenant.MembershipPage"
+                                            "$ref": "#/definitions/httptransport.MembershipPageBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/memberships/update": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "memberships"
+                ],
+                "summary": "Update a tenant membership using optimistic locking",
+                "parameters": [
+                    {
+                        "description": "Membership and current version",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.UpdateMembershipRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.MembershipBody"
                                         }
                                     }
                                 }
@@ -599,7 +747,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/tenant.OrganizationUnit"
+                                            "$ref": "#/definitions/httptransport.OrganizationUnitBody"
                                         }
                                     }
                                 }
@@ -649,7 +797,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/tenant.OrganizationUnit"
+                                            "$ref": "#/definitions/httptransport.OrganizationUnitBody"
                                         }
                                     }
                                 }
@@ -699,10 +847,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/tenant.OrganizationUnit"
-                                            }
+                                            "$ref": "#/definitions/httptransport.OrganizationUnitsResponseBody"
                                         }
                                     }
                                 }
@@ -752,7 +897,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/tenant.OrganizationUnit"
+                                            "$ref": "#/definitions/httptransport.OrganizationUnitBody"
                                         }
                                     }
                                 }
@@ -794,7 +939,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.ConsumeQuotaResponseBody"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -840,7 +997,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/tenant.Quota"
+                                            "$ref": "#/definitions/httptransport.QuotaBody"
                                         }
                                     }
                                 }
@@ -890,7 +1047,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/tenant.QuotaPage"
+                                            "$ref": "#/definitions/httptransport.QuotaPageBody"
                                         }
                                     }
                                 }
@@ -940,7 +1097,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "body": {
-                                            "$ref": "#/definitions/tenant.Quota"
+                                            "$ref": "#/definitions/httptransport.QuotaBody"
                                         }
                                     }
                                 }
@@ -982,7 +1139,69 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.CreateTenantResponseBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/tenants/get": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tenants"
+                ],
+                "summary": "Get a tenant",
+                "parameters": [
+                    {
+                        "description": "Tenant",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.GetTenantRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.TenantBody"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1020,7 +1239,69 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.TenantPageBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/tenants/list-by-user": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "memberships"
+                ],
+                "summary": "List tenant memberships for a user",
+                "parameters": [
+                    {
+                        "description": "User and pagination",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.ListUserTenantsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.TenantPageBody"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1058,7 +1339,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httptransport.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.CreateTenantResponseBody"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1121,6 +1414,56 @@ const docTemplate = `{
                         "description": "Code 50003: identity service unavailable",
                         "schema": {
                             "$ref": "#/definitions/httptransport.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/tenants/update": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tenants"
+                ],
+                "summary": "Update a tenant using optimistic locking",
+                "parameters": [
+                    {
+                        "description": "Tenant and current version",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.UpdateTenantRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.TenantBody"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -1295,6 +1638,43 @@ const docTemplate = `{
                 }
             }
         },
+        "httptransport.AcceptInvitationResponseBody": {
+            "type": "object",
+            "properties": {
+                "invitation": {
+                    "$ref": "#/definitions/httptransport.InvitationBody"
+                },
+                "membership": {
+                    "$ref": "#/definitions/httptransport.MembershipBody"
+                }
+            }
+        },
+        "httptransport.AddGroupMemberResponseBody": {
+            "type": "object",
+            "properties": {
+                "added": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "httptransport.AddMembershipRequest": {
+            "type": "object",
+            "required": [
+                "tenant_id",
+                "user_id"
+            ],
+            "properties": {
+                "primary_organization_unit_id": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "httptransport.ConsumeQuotaRequest": {
             "type": "object",
             "required": [
@@ -1311,6 +1691,17 @@ const docTemplate = `{
                 },
                 "tenant_id": {
                     "type": "string"
+                }
+            }
+        },
+        "httptransport.ConsumeQuotaResponseBody": {
+            "type": "object",
+            "properties": {
+                "allowed": {
+                    "type": "boolean"
+                },
+                "quota": {
+                    "$ref": "#/definitions/httptransport.QuotaBody"
                 }
             }
         },
@@ -1356,7 +1747,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "invitation": {
-                    "$ref": "#/definitions/tenant.Invitation"
+                    "$ref": "#/definitions/httptransport.InvitationBody"
                 },
                 "token": {
                     "type": "string"
@@ -1404,6 +1795,17 @@ const docTemplate = `{
                 }
             }
         },
+        "httptransport.CreateTenantResponseBody": {
+            "type": "object",
+            "properties": {
+                "owner_membership": {
+                    "$ref": "#/definitions/httptransport.MembershipBody"
+                },
+                "tenant": {
+                    "$ref": "#/definitions/httptransport.TenantBody"
+                }
+            }
+        },
         "httptransport.GetOrganizationUnitRequest": {
             "type": "object",
             "required": [
@@ -1430,6 +1832,87 @@ const docTemplate = `{
                 }
             }
         },
+        "httptransport.GetTenantRequest": {
+            "type": "object",
+            "required": [
+                "tenant_id"
+            ],
+            "properties": {
+                "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httptransport.GroupBody": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httptransport.GroupMemberBody": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "group_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "membership_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
         "httptransport.GroupMemberRequest": {
             "type": "object",
             "required": [
@@ -1451,8 +1934,77 @@ const docTemplate = `{
                 "group_members": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/tenant.GroupMember"
+                        "$ref": "#/definitions/httptransport.GroupMemberBody"
                     }
+                }
+            }
+        },
+        "httptransport.GroupsResponseBody": {
+            "type": "object",
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httptransport.GroupBody"
+                    }
+                }
+            }
+        },
+        "httptransport.InvitationBody": {
+            "type": "object",
+            "properties": {
+                "accepted_by_user_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httptransport.InvitationPageBody": {
+            "type": "object",
+            "properties": {
+                "invitations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httptransport.InvitationBody"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
@@ -1566,11 +2118,190 @@ const docTemplate = `{
                 }
             }
         },
+        "httptransport.ListUserTenantsRequest": {
+            "type": "object",
+            "required": [
+                "user_id"
+            ],
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "httptransport.MeResponseBody": {
             "type": "object",
             "properties": {
                 "subject": {
                     "type": "string"
+                }
+            }
+        },
+        "httptransport.MembershipBody": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "joined_at": {
+                    "type": "string"
+                },
+                "primary_organization_unit_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httptransport.MembershipPageBody": {
+            "type": "object",
+            "properties": {
+                "memberships": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httptransport.MembershipBody"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httptransport.OrganizationUnitBody": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httptransport.OrganizationUnitsResponseBody": {
+            "type": "object",
+            "properties": {
+                "organization_units": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httptransport.OrganizationUnitBody"
+                    }
+                }
+            }
+        },
+        "httptransport.QuotaBody": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                },
+                "used": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httptransport.QuotaPageBody": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "quotas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httptransport.QuotaBody"
+                    }
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
@@ -1590,6 +2321,14 @@ const docTemplate = `{
                 },
                 "version": {
                     "type": "integer"
+                }
+            }
+        },
+        "httptransport.RemoveGroupMemberResponseBody": {
+            "type": "object",
+            "properties": {
+                "removed": {
+                    "type": "boolean"
                 }
             }
         },
@@ -1677,6 +2416,58 @@ const docTemplate = `{
                 }
             }
         },
+        "httptransport.TenantBody": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httptransport.TenantPageBody": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "tenants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httptransport.TenantBody"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "httptransport.UpdateGroupRequest": {
             "type": "object",
             "required": [
@@ -1690,6 +2481,31 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httptransport.UpdateMembershipRequest": {
+            "type": "object",
+            "required": [
+                "membership_id",
+                "status",
+                "version"
+            ],
+            "properties": {
+                "membership_id": {
+                    "type": "string"
+                },
+                "primary_organization_unit_id": {
+                    "type": "string"
+                },
+                "reason": {
                     "type": "string"
                 },
                 "status": {
@@ -1726,57 +2542,19 @@ const docTemplate = `{
                 }
             }
         },
-        "tenant.Group": {
+        "httptransport.UpdateTenantRequest": {
             "type": "object",
+            "required": [
+                "name",
+                "status",
+                "tenant_id",
+                "version"
+            ],
             "properties": {
-                "code": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "created_by": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
                 "name": {
                     "type": "string"
                 },
-                "status": {
-                    "type": "string"
-                },
-                "tenant_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "updated_by": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "integer"
-                }
-            }
-        },
-        "tenant.GroupMember": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "created_by": {
-                    "type": "string"
-                },
-                "group_id": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "membership_id": {
+                "reason": {
                     "type": "string"
                 },
                 "status": {
@@ -1785,222 +2563,7 @@ const docTemplate = `{
                 "tenant_id": {
                     "type": "string"
                 },
-                "updated_at": {
-                    "type": "string"
-                },
-                "updated_by": {
-                    "type": "string"
-                },
                 "version": {
-                    "type": "integer"
-                }
-            }
-        },
-        "tenant.Invitation": {
-            "type": "object",
-            "properties": {
-                "accepted_by_user_id": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "created_by": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "expires_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "tenant_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "updated_by": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "integer"
-                }
-            }
-        },
-        "tenant.InvitationPage": {
-            "type": "object",
-            "properties": {
-                "invitations": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/tenant.Invitation"
-                    }
-                },
-                "page": {
-                    "type": "integer"
-                },
-                "page_size": {
-                    "type": "integer"
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "tenant.Membership": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "created_by": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "joined_at": {
-                    "type": "string"
-                },
-                "primary_organization_unit_id": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "tenant_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "updated_by": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "integer"
-                }
-            }
-        },
-        "tenant.MembershipPage": {
-            "type": "object",
-            "properties": {
-                "memberships": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/tenant.Membership"
-                    }
-                },
-                "page": {
-                    "type": "integer"
-                },
-                "page_size": {
-                    "type": "integer"
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
-        "tenant.OrganizationUnit": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "created_by": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "parent_id": {
-                    "type": "string"
-                },
-                "path": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "tenant_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "updated_by": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "integer"
-                }
-            }
-        },
-        "tenant.Quota": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "created_by": {
-                    "type": "string"
-                },
-                "key": {
-                    "type": "string"
-                },
-                "limit": {
-                    "type": "integer"
-                },
-                "tenant_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "updated_by": {
-                    "type": "string"
-                },
-                "used": {
-                    "type": "integer"
-                },
-                "version": {
-                    "type": "integer"
-                }
-            }
-        },
-        "tenant.QuotaPage": {
-            "type": "object",
-            "properties": {
-                "page": {
-                    "type": "integer"
-                },
-                "page_size": {
-                    "type": "integer"
-                },
-                "quotas": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/tenant.Quota"
-                    }
-                },
-                "total": {
                     "type": "integer"
                 }
             }

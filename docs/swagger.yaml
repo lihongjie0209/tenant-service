@@ -36,6 +36,30 @@ definitions:
     required:
     - token
     type: object
+  httptransport.AcceptInvitationResponseBody:
+    properties:
+      invitation:
+        $ref: '#/definitions/httptransport.InvitationBody'
+      membership:
+        $ref: '#/definitions/httptransport.MembershipBody'
+    type: object
+  httptransport.AddGroupMemberResponseBody:
+    properties:
+      added:
+        type: boolean
+    type: object
+  httptransport.AddMembershipRequest:
+    properties:
+      primary_organization_unit_id:
+        type: string
+      tenant_id:
+        type: string
+      user_id:
+        type: string
+    required:
+    - tenant_id
+    - user_id
+    type: object
   httptransport.ConsumeQuotaRequest:
     properties:
       amount:
@@ -48,6 +72,13 @@ definitions:
     - amount
     - key
     - tenant_id
+    type: object
+  httptransport.ConsumeQuotaResponseBody:
+    properties:
+      allowed:
+        type: boolean
+      quota:
+        $ref: '#/definitions/httptransport.QuotaBody'
     type: object
   httptransport.CreateGroupRequest:
     properties:
@@ -78,7 +109,7 @@ definitions:
   httptransport.CreateInvitationResponseBody:
     properties:
       invitation:
-        $ref: '#/definitions/tenant.Invitation'
+        $ref: '#/definitions/httptransport.InvitationBody'
       token:
         type: string
     type: object
@@ -110,6 +141,13 @@ definitions:
     - name
     - owner_user_id
     type: object
+  httptransport.CreateTenantResponseBody:
+    properties:
+      owner_membership:
+        $ref: '#/definitions/httptransport.MembershipBody'
+      tenant:
+        $ref: '#/definitions/httptransport.TenantBody'
+    type: object
   httptransport.GetOrganizationUnitRequest:
     properties:
       organization_unit_id:
@@ -127,6 +165,59 @@ definitions:
     - key
     - tenant_id
     type: object
+  httptransport.GetTenantRequest:
+    properties:
+      tenant_id:
+        type: string
+    required:
+    - tenant_id
+    type: object
+  httptransport.GroupBody:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      version:
+        type: integer
+    type: object
+  httptransport.GroupMemberBody:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: string
+      group_id:
+        type: string
+      id:
+        type: string
+      membership_id:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      version:
+        type: integer
+    type: object
   httptransport.GroupMemberRequest:
     properties:
       group_id:
@@ -141,8 +232,53 @@ definitions:
     properties:
       group_members:
         items:
-          $ref: '#/definitions/tenant.GroupMember'
+          $ref: '#/definitions/httptransport.GroupMemberBody'
         type: array
+    type: object
+  httptransport.GroupsResponseBody:
+    properties:
+      groups:
+        items:
+          $ref: '#/definitions/httptransport.GroupBody'
+        type: array
+    type: object
+  httptransport.InvitationBody:
+    properties:
+      accepted_by_user_id:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      email:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      version:
+        type: integer
+    type: object
+  httptransport.InvitationPageBody:
+    properties:
+      invitations:
+        items:
+          $ref: '#/definitions/httptransport.InvitationBody'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
     type: object
   httptransport.ListGroupMembersRequest:
     properties:
@@ -215,10 +351,127 @@ definitions:
       status:
         type: string
     type: object
+  httptransport.ListUserTenantsRequest:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      user_id:
+        type: string
+    required:
+    - user_id
+    type: object
   httptransport.MeResponseBody:
     properties:
       subject:
         type: string
+    type: object
+  httptransport.MembershipBody:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      joined_at:
+        type: string
+      primary_organization_unit_id:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      user_id:
+        type: string
+      version:
+        type: integer
+    type: object
+  httptransport.MembershipPageBody:
+    properties:
+      memberships:
+        items:
+          $ref: '#/definitions/httptransport.MembershipBody'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  httptransport.OrganizationUnitBody:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: string
+      path:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      version:
+        type: integer
+    type: object
+  httptransport.OrganizationUnitsResponseBody:
+    properties:
+      organization_units:
+        items:
+          $ref: '#/definitions/httptransport.OrganizationUnitBody'
+        type: array
+    type: object
+  httptransport.QuotaBody:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: string
+      key:
+        type: string
+      limit:
+        type: integer
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      used:
+        type: integer
+      version:
+        type: integer
+    type: object
+  httptransport.QuotaPageBody:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      quotas:
+        items:
+          $ref: '#/definitions/httptransport.QuotaBody'
+        type: array
+      total:
+        type: integer
     type: object
   httptransport.RemoveGroupMemberRequest:
     properties:
@@ -232,6 +485,11 @@ definitions:
     - group_id
     - membership_id
     - version
+    type: object
+  httptransport.RemoveGroupMemberResponseBody:
+    properties:
+      removed:
+        type: boolean
     type: object
   httptransport.Response:
     properties:
@@ -289,6 +547,40 @@ definitions:
     - key
     - tenant_id
     type: object
+  httptransport.TenantBody:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      version:
+        type: integer
+    type: object
+  httptransport.TenantPageBody:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      tenants:
+        items:
+          $ref: '#/definitions/httptransport.TenantBody'
+        type: array
+      total:
+        type: integer
+    type: object
   httptransport.UpdateGroupRequest:
     properties:
       group_id:
@@ -302,6 +594,23 @@ definitions:
     required:
     - group_id
     - name
+    - status
+    - version
+    type: object
+  httptransport.UpdateMembershipRequest:
+    properties:
+      membership_id:
+        type: string
+      primary_organization_unit_id:
+        type: string
+      reason:
+        type: string
+      status:
+        type: string
+      version:
+        type: integer
+    required:
+    - membership_id
     - status
     - version
     type: object
@@ -323,188 +632,23 @@ definitions:
     - status
     - version
     type: object
-  tenant.Group:
+  httptransport.UpdateTenantRequest:
     properties:
-      code:
-        type: string
-      created_at:
-        type: string
-      created_by:
-        type: string
-      id:
-        type: string
       name:
         type: string
-      status:
-        type: string
-      tenant_id:
-        type: string
-      updated_at:
-        type: string
-      updated_by:
-        type: string
-      version:
-        type: integer
-    type: object
-  tenant.GroupMember:
-    properties:
-      created_at:
-        type: string
-      created_by:
-        type: string
-      group_id:
-        type: string
-      id:
-        type: string
-      membership_id:
+      reason:
         type: string
       status:
         type: string
       tenant_id:
         type: string
-      updated_at:
-        type: string
-      updated_by:
-        type: string
       version:
         type: integer
-    type: object
-  tenant.Invitation:
-    properties:
-      accepted_by_user_id:
-        type: string
-      created_at:
-        type: string
-      created_by:
-        type: string
-      email:
-        type: string
-      expires_at:
-        type: string
-      id:
-        type: string
-      status:
-        type: string
-      tenant_id:
-        type: string
-      updated_at:
-        type: string
-      updated_by:
-        type: string
-      version:
-        type: integer
-    type: object
-  tenant.InvitationPage:
-    properties:
-      invitations:
-        items:
-          $ref: '#/definitions/tenant.Invitation'
-        type: array
-      page:
-        type: integer
-      page_size:
-        type: integer
-      total:
-        type: integer
-    type: object
-  tenant.Membership:
-    properties:
-      created_at:
-        type: string
-      created_by:
-        type: string
-      id:
-        type: string
-      joined_at:
-        type: string
-      primary_organization_unit_id:
-        type: string
-      status:
-        type: string
-      tenant_id:
-        type: string
-      updated_at:
-        type: string
-      updated_by:
-        type: string
-      user_id:
-        type: string
-      version:
-        type: integer
-    type: object
-  tenant.MembershipPage:
-    properties:
-      memberships:
-        items:
-          $ref: '#/definitions/tenant.Membership'
-        type: array
-      page:
-        type: integer
-      page_size:
-        type: integer
-      total:
-        type: integer
-    type: object
-  tenant.OrganizationUnit:
-    properties:
-      code:
-        type: string
-      created_at:
-        type: string
-      created_by:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      parent_id:
-        type: string
-      path:
-        type: string
-      status:
-        type: string
-      tenant_id:
-        type: string
-      updated_at:
-        type: string
-      updated_by:
-        type: string
-      version:
-        type: integer
-    type: object
-  tenant.Quota:
-    properties:
-      created_at:
-        type: string
-      created_by:
-        type: string
-      key:
-        type: string
-      limit:
-        type: integer
-      tenant_id:
-        type: string
-      updated_at:
-        type: string
-      updated_by:
-        type: string
-      used:
-        type: integer
-      version:
-        type: integer
-    type: object
-  tenant.QuotaPage:
-    properties:
-      page:
-        type: integer
-      page_size:
-        type: integer
-      quotas:
-        items:
-          $ref: '#/definitions/tenant.Quota'
-        type: array
-      total:
-        type: integer
+    required:
+    - name
+    - status
+    - tenant_id
+    - version
     type: object
 info:
   contact: {}
@@ -535,7 +679,7 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/tenant.Group'
+                  $ref: '#/definitions/httptransport.GroupBody'
               type: object
       security:
       - Bearer: []
@@ -559,7 +703,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httptransport.Response'
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.GroupsResponseBody'
+              type: object
       security:
       - Bearer: []
       summary: List tenant member groups
@@ -582,7 +731,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httptransport.Response'
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.AddGroupMemberResponseBody'
+              type: object
       security:
       - Bearer: []
       summary: Add a membership to a group
@@ -605,7 +759,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httptransport.Response'
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.RemoveGroupMemberResponseBody'
+              type: object
       security:
       - Bearer: []
       summary: Remove a membership from a group using optimistic locking
@@ -660,7 +819,7 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/tenant.Group'
+                  $ref: '#/definitions/httptransport.GroupBody'
               type: object
       security:
       - Bearer: []
@@ -684,7 +843,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httptransport.Response'
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.AcceptInvitationResponseBody'
+              type: object
       security:
       - Bearer: []
       summary: Accept an invitation as the authenticated subject
@@ -739,7 +903,7 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/tenant.InvitationPage'
+                  $ref: '#/definitions/httptransport.InvitationPageBody'
               type: object
       security:
       - Bearer: []
@@ -767,7 +931,7 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/tenant.Invitation'
+                  $ref: '#/definitions/httptransport.InvitationBody'
               type: object
       security:
       - Bearer: []
@@ -797,6 +961,34 @@ paths:
       summary: Return the authenticated subject
       tags:
       - authentication
+  /api/v1/memberships/add:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Membership
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.AddMembershipRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.MembershipBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: Add a tenant membership
+      tags:
+      - memberships
   /api/v1/memberships/list:
     post:
       consumes:
@@ -818,11 +1010,39 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/tenant.MembershipPage'
+                  $ref: '#/definitions/httptransport.MembershipPageBody'
               type: object
       security:
       - Bearer: []
       summary: List tenant memberships
+      tags:
+      - memberships
+  /api/v1/memberships/update:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Membership and current version
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.UpdateMembershipRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.MembershipBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: Update a tenant membership using optimistic locking
       tags:
       - memberships
   /api/v1/organization-units/create:
@@ -846,7 +1066,7 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/tenant.OrganizationUnit'
+                  $ref: '#/definitions/httptransport.OrganizationUnitBody'
               type: object
       security:
       - Bearer: []
@@ -874,7 +1094,7 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/tenant.OrganizationUnit'
+                  $ref: '#/definitions/httptransport.OrganizationUnitBody'
               type: object
       security:
       - Bearer: []
@@ -902,9 +1122,7 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  items:
-                    $ref: '#/definitions/tenant.OrganizationUnit'
-                  type: array
+                  $ref: '#/definitions/httptransport.OrganizationUnitsResponseBody'
               type: object
       security:
       - Bearer: []
@@ -932,7 +1150,7 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/tenant.OrganizationUnit'
+                  $ref: '#/definitions/httptransport.OrganizationUnitBody'
               type: object
       security:
       - Bearer: []
@@ -956,7 +1174,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httptransport.Response'
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.ConsumeQuotaResponseBody'
+              type: object
       security:
       - Bearer: []
       summary: Atomically consume tenant quota
@@ -983,7 +1206,7 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/tenant.Quota'
+                  $ref: '#/definitions/httptransport.QuotaBody'
               type: object
       security:
       - Bearer: []
@@ -1011,7 +1234,7 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/tenant.QuotaPage'
+                  $ref: '#/definitions/httptransport.QuotaPageBody'
               type: object
       security:
       - Bearer: []
@@ -1039,7 +1262,7 @@ paths:
             - $ref: '#/definitions/httptransport.Response'
             - properties:
                 body:
-                  $ref: '#/definitions/tenant.Quota'
+                  $ref: '#/definitions/httptransport.QuotaBody'
               type: object
       security:
       - Bearer: []
@@ -1063,10 +1286,43 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httptransport.Response'
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.CreateTenantResponseBody'
+              type: object
       security:
       - Bearer: []
       summary: Create a tenant owned by the authenticated user
+      tags:
+      - tenants
+  /api/v1/tenants/get:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.GetTenantRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.TenantBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: Get a tenant
       tags:
       - tenants
   /api/v1/tenants/list:
@@ -1086,12 +1342,45 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httptransport.Response'
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.TenantPageBody'
+              type: object
       security:
       - Bearer: []
       summary: List tenants
       tags:
       - tenants
+  /api/v1/tenants/list-by-user:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: User and pagination
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.ListUserTenantsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.TenantPageBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: List tenant memberships for a user
+      tags:
+      - memberships
   /api/v1/tenants/manage/create:
     post:
       consumes:
@@ -1109,7 +1398,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httptransport.Response'
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.CreateTenantResponseBody'
+              type: object
       security:
       - Bearer: []
       summary: Create a tenant for a target owner as a platform administrator
@@ -1150,6 +1444,34 @@ paths:
       - Bearer: []
       summary: Validate the current user's membership and exchange a tenant-scoped
         access token
+      tags:
+      - tenants
+  /api/v1/tenants/update:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant and current version
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.UpdateTenantRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.TenantBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: Update a tenant using optimistic locking
       tags:
       - tenants
   /api/v1/version:
