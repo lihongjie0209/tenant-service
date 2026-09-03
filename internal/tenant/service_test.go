@@ -509,6 +509,31 @@ func TestSQLRepository_BatchGetOrganizationUnitsScopesIDsToTenant(t *testing.T) 
 	}
 }
 
+func TestSQLRepository_ListOrganizationChildrenIsBoundedAndReportsDescendants(t *testing.T) {
+	t.Parallel()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	repository := &SQLRepository{db: sqlx.NewDb(db, "sqlmock")}
+	const selectedColumns = "unit.id, unit.tenant_id, COALESCE(unit.parent_id, '') AS parent_id, unit.code, unit.name, unit.path, unit.status, unit.version, unit.created_at, unit.updated_at, unit.created_by, unit.updated_by"
+	query := "SELECT " + selectedColumns + ", EXISTS (SELECT 1 FROM organization_units child WHERE child.tenant_id = unit.tenant_id AND child.parent_id = unit.id AND child.status = ?) AS has_children FROM organization_units unit WHERE unit.tenant_id = ? AND unit.parent_id IS NULL AND unit.status = ? ORDER BY unit.path, unit.id LIMIT ?"
+	now := time.Date(2026, 8, 31, 22, 0, 0, 0, time.FixedZone("UTC+8", 8*60*60))
+	rows := sqlmock.NewRows([]string{"id", "tenant_id", "parent_id", "code", "name", "path", "status", "version", "created_at", "updated_at", "created_by", "updated_by", "has_children"}).
+		AddRow("unit-1", "tenant-1", "", "unit-1", "Unit 1", "/unit-1/", "active", 1, now, now, "admin-1", "admin-1", true).
+		AddRow("unit-2", "tenant-1", "", "unit-2", "Unit 2", "/unit-2/", "active", 1, now, now, "admin-1", "admin-1", false).
+		AddRow("unit-3", "tenant-1", "", "unit-3", "Unit 3", "/unit-3/", "active", 1, now, now, "admin-1", "admin-1", false)
+	mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs("active", "tenant-1", "active", 3).WillReturnRows(rows)
+	nodes, truncated, err := repository.ListOrganizationChildren(t.Context(), "tenant-1", "", "active", 2)
+	if err != nil || !truncated || len(nodes) != 2 || !nodes[0].HasChildren || nodes[1].HasChildren {
+		t.Fatalf("ListOrganizationChildren() = (%+v, %v, %v)", nodes, truncated, err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSQLRepository_FindMembershipsByUserIDsScopesTenantAndStatus(t *testing.T) {
 	t.Parallel()
 	db, mock, err := sqlmock.New()

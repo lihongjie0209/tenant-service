@@ -18,6 +18,10 @@ type OrganizationDictionaryRepository interface {
 	ListOrganizationUnits(context.Context, string) ([]OrganizationUnit, error)
 }
 
+type organizationChildrenRepository interface {
+	ListOrganizationChildren(context.Context, string, string, string, int) ([]OrganizationTreeNode, bool, error)
+}
+
 type DictionarySearch struct {
 	Keyword    string
 	Filters    map[string]string
@@ -93,6 +97,11 @@ func (p *DictionaryProvider) Tree(ctx context.Context, tenantID, code, mode, par
 	}
 	if maxDepth < 1 || maxDepth > 32 || maxNodes < 1 || maxNodes > 5000 {
 		return nil, false, ErrDictionaryRequest
+	}
+	if mode == "children" && maxDepth == 1 {
+		if repository, ok := p.repository.(organizationChildrenRepository); ok {
+			return repository.ListOrganizationChildren(ctx, tenantID, parentID, filters["status"], maxNodes)
+		}
 	}
 	items, err := p.repository.ListOrganizationUnits(ctx, tenantID)
 	if err != nil {

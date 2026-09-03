@@ -263,6 +263,47 @@ func (r *SQLRepository) ListOrganizationUnits(ctx context.Context, tenantID stri
 	return items, nil
 }
 
+func (r *SQLRepository) ListOrganizationChildren(ctx context.Context, tenantID, parentID, status string, limit int) ([]OrganizationTreeNode, bool, error) {
+	parentPredicate := "unit.parent_id = ?"
+	args := []any{tenantID, parentID}
+	childArgs := []any{}
+	if parentID == "" {
+		parentPredicate = "unit.parent_id IS NULL"
+		args = []any{tenantID}
+	}
+	statusPredicate := ""
+	if status != "" {
+		statusPredicate = " AND unit.status = ?"
+		args = append(args, status)
+		childArgs = append(childArgs, status)
+	}
+	const selectedColumns = "unit.id, unit.tenant_id, COALESCE(unit.parent_id, '') AS parent_id, unit.code, unit.name, unit.path, unit.status, unit.version, unit.created_at, unit.updated_at, unit.created_by, unit.updated_by"
+	query := "SELECT " + selectedColumns + ", EXISTS (SELECT 1 FROM organization_units child WHERE child.tenant_id = unit.tenant_id AND child.parent_id = unit.id"
+	if status != "" {
+		query += " AND child.status = ?"
+	}
+	query += ") AS has_children FROM organization_units unit WHERE unit.tenant_id = ? AND " + parentPredicate + statusPredicate + " ORDER BY unit.path, unit.id LIMIT ?"
+	queryArgs := append(childArgs, args...)
+	queryArgs = append(queryArgs, limit+1)
+	type organizationChildRow struct {
+		OrganizationUnit
+		HasChildren bool `db:"has_children"`
+	}
+	rows := make([]organizationChildRow, 0, min(limit+1, 101))
+	if err := r.db.SelectContext(ctx, &rows, r.db.Rebind(query), queryArgs...); err != nil {
+		return nil, false, fmt.Errorf("list organization children: %w", err)
+	}
+	truncated := len(rows) > limit
+	if truncated {
+		rows = rows[:limit]
+	}
+	nodes := make([]OrganizationTreeNode, 0, len(rows))
+	for _, row := range rows {
+		nodes = append(nodes, OrganizationTreeNode{Item: row.OrganizationUnit, Children: []OrganizationTreeNode{}, HasChildren: row.HasChildren})
+	}
+	return nodes, truncated, nil
+}
+
 func (r *SQLRepository) UpdateOrganizationUnit(ctx context.Context, exec sqlx.ExtContext, value OrganizationUnit, oldPath string) error {
 	query := r.db.Rebind("UPDATE organization_units SET parent_id = ?, name = ?, path = ?, status = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE id = ? AND version = ?")
 	result, err := exec.ExecContext(ctx, query, nullableID(value.ParentID), value.Name, value.Path, value.Status, value.UpdatedAt, value.UpdatedBy, value.ID, value.Version)
