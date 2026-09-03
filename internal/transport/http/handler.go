@@ -161,6 +161,13 @@ type GroupMembersResponseBody struct {
 type ListGroupsRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
 }
+type SearchGroupsRequest struct {
+	TenantID string `json:"tenant_id" binding:"required"`
+	Keyword  string `json:"keyword"`
+	Status   string `json:"status"`
+	Page     int    `json:"page"`
+	PageSize int    `json:"page_size"`
+}
 type GetQuotaRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
 	Key      string `json:"key" binding:"required"`
@@ -821,6 +828,29 @@ func (h *Handler) ListGroups(c *gin.Context) {
 		return
 	}
 	OK(c, GroupsResponseBody{Groups: mapBodies(value, groupBody)})
+}
+
+// SearchGroups godoc
+// @Summary Search tenant member groups with pagination
+// @Tags groups
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body SearchGroupsRequest true "Tenant, filters and pagination"
+// @Success 200 {object} Response{body=GroupPageBody}
+// @Router /api/v1/groups/search [post]
+func (h *Handler) SearchGroups(c *gin.Context) {
+	var request SearchGroupsRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	value, err := h.tenants.SearchGroups(c.Request.Context(), request.TenantID, request.Keyword, request.Status, request.Page, request.PageSize)
+	if err != nil {
+		Fail(c, h.logger, err)
+		return
+	}
+	OK(c, groupPageBody(value))
 }
 
 // GetQuota godoc

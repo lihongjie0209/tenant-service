@@ -43,6 +43,7 @@ type Repository interface {
 	GetGroup(context.Context, string) (Group, error)
 	UpdateGroup(context.Context, sqlx.ExtContext, Group) error
 	ListGroups(context.Context, string) ([]Group, error)
+	SearchGroups(context.Context, string, string, string, int, int) ([]Group, int64, error)
 	CreateGroupMember(context.Context, sqlx.ExtContext, GroupMember) error
 	GetGroupMember(context.Context, string, string) (GroupMember, error)
 	UpdateGroupMember(context.Context, sqlx.ExtContext, GroupMember) error
@@ -328,6 +329,31 @@ func (r *SQLRepository) ListGroups(ctx context.Context, tenantID string) ([]Grou
 		return nil, fmt.Errorf("list member groups: %w", err)
 	}
 	return items, nil
+}
+
+func (r *SQLRepository) SearchGroups(ctx context.Context, tenantID, keyword, status string, limit, offset int) ([]Group, int64, error) {
+	where := " WHERE tenant_id = ?"
+	args := []any{tenantID}
+	if status != "" {
+		where += " AND status = ?"
+		args = append(args, status)
+	}
+	if keyword != "" {
+		where += " AND (LOWER(code) LIKE LOWER(?) OR LOWER(name) LIKE LOWER(?))"
+		pattern := "%" + keyword + "%"
+		args = append(args, pattern, pattern)
+	}
+	var total int64
+	if err := r.db.GetContext(ctx, &total, r.db.Rebind("SELECT COUNT(*) FROM member_groups"+where), args...); err != nil {
+		return nil, 0, fmt.Errorf("count member groups: %w", err)
+	}
+	items := make([]Group, 0, limit)
+	queryArgs := append(append([]any(nil), args...), limit, offset)
+	query := "SELECT " + groupColumns + " FROM member_groups" + where + " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"
+	if err := r.db.SelectContext(ctx, &items, r.db.Rebind(query), queryArgs...); err != nil {
+		return nil, 0, fmt.Errorf("search member groups: %w", err)
+	}
+	return items, total, nil
 }
 func (r *SQLRepository) CreateGroupMember(ctx context.Context, exec sqlx.ExtContext, value GroupMember) error {
 	query := r.db.Rebind(createGroupMemberSQL())

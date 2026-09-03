@@ -145,6 +145,13 @@ type GroupsResponseBody struct {
 	Groups []GroupBody `json:"groups"`
 }
 
+type GroupPageBody struct {
+	Groups   []GroupBody `json:"groups"`
+	Total    int64       `json:"total"`
+	Page     int         `json:"page"`
+	PageSize int         `json:"page_size"`
+}
+
 type ConsumeQuotaResponseBody struct {
 	Quota   QuotaBody `json:"quota"`
 	Allowed bool      `json:"allowed"`
@@ -204,6 +211,10 @@ func membershipPageBody(value tenant.MembershipPage) MembershipPageBody {
 
 func membershipBatchBody(values []tenant.Membership) MembershipBatchBody {
 	return MembershipBatchBody{Memberships: mapBodies(values, membershipBody)}
+}
+
+func groupPageBody(value tenant.GroupPage) GroupPageBody {
+	return GroupPageBody{Groups: mapBodies(value.Groups, groupBody), Total: value.Total, Page: value.Page, PageSize: value.PageSize}
 }
 
 func invitationPageBody(value tenant.InvitationPage) InvitationPageBody {

@@ -2,6 +2,7 @@ package tenant
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"io"
@@ -117,6 +118,20 @@ type capturingBatchMembershipRepository struct {
 	ids      []string
 }
 
+type capturingGroupSearchRepository struct {
+	fakeRepository
+	tenantID string
+	keyword  string
+	status   string
+	limit    int
+	offset   int
+}
+
+func (r *capturingGroupSearchRepository) SearchGroups(_ context.Context, tenantID, keyword, status string, limit, offset int) ([]Group, int64, error) {
+	r.tenantID, r.keyword, r.status, r.limit, r.offset = tenantID, keyword, status, limit, offset
+	return []Group{r.group}, 1, nil
+}
+
 func (r *capturingBatchMembershipRepository) BatchGetMemberships(_ context.Context, tenantID string, ids []string) ([]Membership, error) {
 	r.tenantID = tenantID
 	r.ids = append([]string(nil), ids...)
@@ -202,6 +217,9 @@ func (f *fakeRepository) UpdateGroup(_ context.Context, _ sqlx.ExtContext, value
 }
 func (f *fakeRepository) ListGroups(context.Context, string) ([]Group, error) {
 	return []Group{f.group}, nil
+}
+func (f *fakeRepository) SearchGroups(context.Context, string, string, string, int, int) ([]Group, int64, error) {
+	return []Group{f.group}, 1, nil
 }
 func (f *fakeRepository) CreateGroupMember(_ context.Context, _ sqlx.ExtContext, value GroupMember) error {
 	f.groupMember = value
@@ -386,6 +404,55 @@ func TestSQLRepository_BatchGetMembershipsScopesIDsToTenant(t *testing.T) {
 	}
 	if len(items) != 1 || items[0].TenantID != "tenant-1" {
 		t.Fatalf("BatchGetMemberships() = %+v", items)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestService_SearchGroupsNormalizesAndBoundsQuery(t *testing.T) {
+	t.Parallel()
+	repository := &capturingGroupSearchRepository{fakeRepository: fakeRepository{group: Group{ID: "group-1"}}}
+	service := NewService(repository, &database.Transactor{}, nil)
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "service-1", Type: principal.TypeServiceAccount})
+	page, err := service.SearchGroups(ctx, " tenant-1 ", " Ops ", "active", 2, 25)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Groups) != 1 || repository.tenantID != "tenant-1" || repository.keyword != "Ops" || repository.limit != 25 || repository.offset != 25 {
+		t.Fatalf("SearchGroups() page=%+v repository=%+v", page, repository)
+	}
+	_, err = service.SearchGroups(ctx, "tenant-1", "", "unknown", 1, 20)
+	var appErr *apperror.Error
+	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInvalidArgument {
+		t.Fatalf("invalid status error = %#v", err)
+	}
+	_, err = service.SearchGroups(ctx, "tenant-1", "", "", 1, 101)
+	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInvalidArgument {
+		t.Fatalf("oversized page error = %#v", err)
+	}
+}
+
+func TestSQLRepository_SearchGroupsScopesAndFiltersQuery(t *testing.T) {
+	t.Parallel()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	repository := &SQLRepository{db: sqlx.NewDb(db, "sqlmock")}
+	where := " WHERE tenant_id = ? AND status = ? AND (LOWER(code) LIKE LOWER(?) OR LOWER(name) LIKE LOWER(?))"
+	args := []driver.Value{"tenant-1", "active", "%ops%", "%ops%"}
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*) FROM member_groups" + where)).WithArgs(args...).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	now := time.Date(2026, 9, 3, 8, 0, 0, 0, time.FixedZone("UTC+8", 8*60*60))
+	query := "SELECT " + groupColumns + " FROM member_groups" + where + " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"
+	mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs("tenant-1", "active", "%ops%", "%ops%", 20, 0).WillReturnRows(
+		sqlmock.NewRows([]string{"id", "tenant_id", "code", "name", "status", "version", "created_at", "updated_at", "created_by", "updated_by"}).
+			AddRow("group-1", "tenant-1", "ops", "Operations", "active", 1, now, now, "admin", "admin"),
+	)
+	items, total, err := repository.SearchGroups(t.Context(), "tenant-1", "ops", "active", 20, 0)
+	if err != nil || total != 1 || len(items) != 1 {
+		t.Fatalf("SearchGroups() = (%+v, %d, %v)", items, total, err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)

@@ -247,6 +247,19 @@ definitions:
           $ref: '#/definitions/httptransport.GroupMemberBody'
         type: array
     type: object
+  httptransport.GroupPageBody:
+    properties:
+      groups:
+        items:
+          $ref: '#/definitions/httptransport.GroupBody'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
   httptransport.GroupsResponseBody:
     properties:
       groups:
@@ -529,6 +542,21 @@ definitions:
     required:
     - invitation_id
     - version
+    type: object
+  httptransport.SearchGroupsRequest:
+    properties:
+      keyword:
+        type: string
+      page:
+        type: integer
+      page_size:
+        type: integer
+      status:
+        type: string
+      tenant_id:
+        type: string
+    required:
+    - tenant_id
     type: object
   httptransport.SelectTenantRequest:
     properties:
@@ -815,6 +843,34 @@ paths:
       security:
       - Bearer: []
       summary: List assignments for a member group
+      tags:
+      - groups
+  /api/v1/groups/search:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant, filters and pagination
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.SearchGroupsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.GroupPageBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: Search tenant member groups with pagination
       tags:
       - groups
   /api/v1/groups/update:

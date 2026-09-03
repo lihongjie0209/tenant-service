@@ -227,6 +227,27 @@ func (s *Service) ListGroups(ctx context.Context, tenantID string) ([]Group, err
 	values, err := s.repository.ListGroups(ctx, tenantID)
 	return values, translate(err)
 }
+
+func (s *Service) SearchGroups(ctx context.Context, tenantID, keyword, status string, page, pageSize int) (GroupPage, error) {
+	tenantID, keyword, status = strings.TrimSpace(tenantID), strings.TrimSpace(keyword), strings.TrimSpace(status)
+	if tenantID == "" || (status != "" && status != "active" && status != "inactive") {
+		return GroupPage{}, apperror.Invalid("invalid group query", nil)
+	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return GroupPage{}, err
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		return GroupPage{}, apperror.Invalid("page_size must not exceed 100", nil)
+	}
+	items, total, err := s.repository.SearchGroups(ctx, tenantID, keyword, status, pageSize, (page-1)*pageSize)
+	return GroupPage{Groups: items, Total: total, Page: page, PageSize: pageSize}, translate(err)
+}
 func (s *Service) AddGroupMember(ctx context.Context, groupID, membershipID string) error {
 	group, err := s.repository.GetGroup(ctx, groupID)
 	if err != nil {

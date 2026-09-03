@@ -127,6 +127,10 @@ func TestTenantRepositoryCompatibility(t *testing.T) {
 			if err := repository.CreateGroup(ctx, db, group); err != nil {
 				t.Fatal(err)
 			}
+			groups, groupTotal, err := repository.SearchGroups(ctx, tenantValue.ID, "oper", "active", 20, 0)
+			if err != nil || groupTotal != 1 || len(groups) != 1 || groups[0].ID != group.ID {
+				t.Fatalf("SearchGroups() = (%+v, %d, %v)", groups, groupTotal, err)
+			}
 			groupMember := tenantdomain.GroupMember{ID: uuid.NewString(), TenantID: tenantValue.ID, GroupID: group.ID, MembershipID: membership.ID, Status: "active", Version: 1, CreatedAt: now, UpdatedAt: now, CreatedBy: "admin", UpdatedBy: "admin"}
 			if err := repository.CreateGroupMember(ctx, db, groupMember); err != nil {
 				t.Fatal(err)

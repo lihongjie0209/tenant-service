@@ -265,6 +265,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/groups/search": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Search tenant member groups with pagination",
+                "parameters": [
+                    {
+                        "description": "Tenant, filters and pagination",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.SearchGroupsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.GroupPageBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/groups/update": {
             "post": {
                 "security": [
@@ -2007,6 +2057,26 @@ const docTemplate = `{
                 }
             }
         },
+        "httptransport.GroupPageBody": {
+            "type": "object",
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httptransport.GroupBody"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "httptransport.GroupsResponseBody": {
             "type": "object",
             "properties": {
@@ -2438,6 +2508,29 @@ const docTemplate = `{
                 },
                 "version": {
                     "type": "integer"
+                }
+            }
+        },
+        "httptransport.SearchGroupsRequest": {
+            "type": "object",
+            "required": [
+                "tenant_id"
+            ],
+            "properties": {
+                "keyword": {
+                    "type": "string"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
                 }
             }
         },
