@@ -230,7 +230,7 @@ func (s *Service) ListGroups(ctx context.Context, tenantID string) ([]Group, err
 
 func (s *Service) SearchGroups(ctx context.Context, tenantID, keyword, status string, page, pageSize int) (GroupPage, error) {
 	tenantID, keyword, status = strings.TrimSpace(tenantID), strings.TrimSpace(keyword), strings.TrimSpace(status)
-	if tenantID == "" || (status != "" && status != "active" && status != "inactive") {
+	if tenantID == "" || (status != "" && status != "active" && status != "disabled") {
 		return GroupPage{}, apperror.Invalid("invalid group query", nil)
 	}
 	if err := authorizeTenant(ctx, tenantID); err != nil {

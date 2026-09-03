@@ -422,6 +422,9 @@ func TestService_SearchGroupsNormalizesAndBoundsQuery(t *testing.T) {
 	if len(page.Groups) != 1 || repository.tenantID != "tenant-1" || repository.keyword != "Ops" || repository.limit != 25 || repository.offset != 25 {
 		t.Fatalf("SearchGroups() page=%+v repository=%+v", page, repository)
 	}
+	if _, err := service.SearchGroups(ctx, "tenant-1", "", "disabled", 1, 20); err != nil {
+		t.Fatalf("disabled group query rejected: %v", err)
+	}
 	_, err = service.SearchGroups(ctx, "tenant-1", "", "unknown", 1, 20)
 	var appErr *apperror.Error
 	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInvalidArgument {
