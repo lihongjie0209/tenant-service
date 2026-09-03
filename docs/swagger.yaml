@@ -60,6 +60,18 @@ definitions:
     - tenant_id
     - user_id
     type: object
+  httptransport.BatchGetGroupMembersRequest:
+    properties:
+      group_id:
+        type: string
+      membership_ids:
+        items:
+          type: string
+        type: array
+    required:
+    - group_id
+    - membership_ids
+    type: object
   httptransport.BatchGetMembershipsRequest:
     properties:
       membership_ids:
@@ -851,6 +863,34 @@ paths:
       security:
       - Bearer: []
       summary: Remove a membership from a group using optimistic locking
+      tags:
+      - groups
+  /api/v1/groups/members/batch-get:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Group and membership IDs (maximum 100)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.BatchGetGroupMembersRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.GroupMembersResponseBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: Get group membership state for a bounded membership set
       tags:
       - groups
   /api/v1/groups/members/list:

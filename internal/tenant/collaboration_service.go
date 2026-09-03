@@ -308,6 +308,41 @@ func (s *Service) ListGroupMembers(ctx context.Context, groupID string) ([]Group
 	values, err := s.repository.ListGroupMembers(ctx, groupID)
 	return values, translate(err)
 }
+
+func (s *Service) BatchGetGroupMembers(ctx context.Context, groupID string, membershipIDs []string) ([]GroupMember, error) {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return nil, apperror.Invalid("group_id is required", nil)
+	}
+	group, err := s.repository.GetGroup(ctx, groupID)
+	if err != nil {
+		return nil, translate(err)
+	}
+	if err := authorizeTenant(ctx, group.TenantID); err != nil {
+		return nil, err
+	}
+	unique := make([]string, 0, len(membershipIDs))
+	seen := make(map[string]struct{}, len(membershipIDs))
+	for _, id := range membershipIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return nil, apperror.Invalid("membership_ids must not contain empty values", nil)
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return []GroupMember{}, nil
+	}
+	if len(unique) > 100 {
+		return nil, apperror.Invalid("membership_ids must not contain more than 100 values", nil)
+	}
+	values, err := s.repository.BatchGetGroupMembers(ctx, groupID, unique)
+	return values, translate(err)
+}
 func (s *Service) RemoveGroupMember(ctx context.Context, groupID, membershipID string, version int64) error {
 	value, err := s.repository.GetGroupMember(ctx, groupID, membershipID)
 	if err != nil {

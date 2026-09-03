@@ -215,6 +215,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/groups/members/batch-get": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Get group membership state for a bounded membership set",
+                "parameters": [
+                    {
+                        "description": "Group and membership IDs (maximum 100)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.BatchGetGroupMembersRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.GroupMembersResponseBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/groups/members/list": {
             "post": {
                 "security": [
@@ -1822,6 +1872,24 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "string"
+                }
+            }
+        },
+        "httptransport.BatchGetGroupMembersRequest": {
+            "type": "object",
+            "required": [
+                "group_id",
+                "membership_ids"
+            ],
+            "properties": {
+                "group_id": {
+                    "type": "string"
+                },
+                "membership_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

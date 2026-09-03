@@ -161,6 +161,10 @@ type RemoveGroupMemberRequest struct {
 type ListGroupMembersRequest struct {
 	GroupID string `json:"group_id" binding:"required"`
 }
+type BatchGetGroupMembersRequest struct {
+	GroupID       string   `json:"group_id" binding:"required"`
+	MembershipIDs []string `json:"membership_ids" binding:"required"`
+}
 type GroupMembersResponseBody struct {
 	GroupMembers []GroupMemberBody `json:"group_members"`
 }
@@ -872,6 +876,29 @@ func (h *Handler) ListGroupMembers(c *gin.Context) {
 		return
 	}
 	values, err := h.tenants.ListGroupMembers(c.Request.Context(), request.GroupID)
+	if err != nil {
+		Fail(c, h.logger, err)
+		return
+	}
+	OK(c, GroupMembersResponseBody{GroupMembers: mapBodies(values, groupMemberBody)})
+}
+
+// BatchGetGroupMembers godoc
+// @Summary Get group membership state for a bounded membership set
+// @Tags groups
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body BatchGetGroupMembersRequest true "Group and membership IDs (maximum 100)"
+// @Success 200 {object} Response{body=GroupMembersResponseBody}
+// @Router /api/v1/groups/members/batch-get [post]
+func (h *Handler) BatchGetGroupMembers(c *gin.Context) {
+	var request BatchGetGroupMembersRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	values, err := h.tenants.BatchGetGroupMembers(c.Request.Context(), request.GroupID, request.MembershipIDs)
 	if err != nil {
 		Fail(c, h.logger, err)
 		return

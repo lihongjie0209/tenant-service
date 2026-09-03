@@ -49,6 +49,7 @@ type Repository interface {
 	GetGroupMember(context.Context, string, string) (GroupMember, error)
 	UpdateGroupMember(context.Context, sqlx.ExtContext, GroupMember) error
 	ListGroupMembers(context.Context, string) ([]GroupMember, error)
+	BatchGetGroupMembers(context.Context, string, []string) ([]GroupMember, error)
 	GetQuota(context.Context, string, string) (Quota, error)
 	ListQuotas(context.Context, string, string, int, int) ([]Quota, int64, error)
 	CreateQuota(context.Context, sqlx.ExtContext, Quota) error
@@ -403,6 +404,18 @@ func (r *SQLRepository) ListGroupMembers(ctx context.Context, groupID string) ([
 	query := r.db.Rebind("SELECT " + groupMemberColumns + " FROM group_members WHERE group_id = ? ORDER BY created_at, id")
 	if err := r.db.SelectContext(ctx, &items, query, groupID); err != nil {
 		return nil, fmt.Errorf("list group members: %w", err)
+	}
+	return items, nil
+}
+
+func (r *SQLRepository) BatchGetGroupMembers(ctx context.Context, groupID string, membershipIDs []string) ([]GroupMember, error) {
+	query, args, err := sqlx.In("SELECT "+groupMemberColumns+" FROM group_members WHERE group_id = ? AND membership_id IN (?) ORDER BY id", groupID, membershipIDs)
+	if err != nil {
+		return nil, fmt.Errorf("build batch group member query: %w", err)
+	}
+	items := make([]GroupMember, 0, len(membershipIDs))
+	if err := r.db.SelectContext(ctx, &items, r.db.Rebind(query), args...); err != nil {
+		return nil, fmt.Errorf("batch get group members: %w", err)
 	}
 	return items, nil
 }

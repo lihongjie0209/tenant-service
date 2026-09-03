@@ -130,6 +130,17 @@ type capturingGroupSearchRepository struct {
 	offset   int
 }
 
+type capturingGroupMemberBatchRepository struct {
+	fakeRepository
+	groupID       string
+	membershipIDs []string
+}
+
+func (r *capturingGroupMemberBatchRepository) BatchGetGroupMembers(_ context.Context, groupID string, membershipIDs []string) ([]GroupMember, error) {
+	r.groupID, r.membershipIDs = groupID, append([]string(nil), membershipIDs...)
+	return []GroupMember{r.groupMember}, nil
+}
+
 func (r *capturingGroupSearchRepository) SearchGroups(_ context.Context, tenantID, keyword, status string, limit, offset int) ([]Group, int64, error) {
 	r.tenantID, r.keyword, r.status, r.limit, r.offset = tenantID, keyword, status, limit, offset
 	return []Group{r.group}, 1, nil
@@ -242,6 +253,9 @@ func (f *fakeRepository) UpdateGroupMember(_ context.Context, _ sqlx.ExtContext,
 	return f.updateErr
 }
 func (f *fakeRepository) ListGroupMembers(context.Context, string) ([]GroupMember, error) {
+	return []GroupMember{f.groupMember}, nil
+}
+func (f *fakeRepository) BatchGetGroupMembers(context.Context, string, []string) ([]GroupMember, error) {
 	return []GroupMember{f.groupMember}, nil
 }
 func (f *fakeRepository) GetQuota(context.Context, string, string) (Quota, error) {
@@ -482,6 +496,50 @@ func TestService_SearchGroupsNormalizesAndBoundsQuery(t *testing.T) {
 	_, err = service.SearchGroups(ctx, "tenant-1", "", "", 1, 101)
 	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInvalidArgument {
 		t.Fatalf("oversized page error = %#v", err)
+	}
+}
+
+func TestService_BatchGetGroupMembersNormalizesAndBoundsIDs(t *testing.T) {
+	t.Parallel()
+	repository := &capturingGroupMemberBatchRepository{fakeRepository: fakeRepository{
+		group:       Group{ID: "group-1", TenantID: "tenant-1"},
+		groupMember: GroupMember{ID: "assignment-1"},
+	}}
+	service := NewService(repository, &database.Transactor{}, nil)
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "service-1", Type: principal.TypeServiceAccount})
+	items, err := service.BatchGetGroupMembers(ctx, " group-1 ", []string{" membership-1 ", "membership-1"})
+	if err != nil || len(items) != 1 || repository.groupID != "group-1" || len(repository.membershipIDs) != 1 {
+		t.Fatalf("BatchGetGroupMembers() items=%+v repository=%+v err=%v", items, repository, err)
+	}
+	tooMany := make([]string, 101)
+	for index := range tooMany {
+		tooMany[index] = fmt.Sprintf("membership-%d", index)
+	}
+	if _, err := service.BatchGetGroupMembers(ctx, "group-1", tooMany); err == nil {
+		t.Fatal("oversized group member batch must fail")
+	}
+}
+
+func TestSQLRepository_BatchGetGroupMembersFiltersGroupAndMemberships(t *testing.T) {
+	t.Parallel()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	repository := &SQLRepository{db: sqlx.NewDb(db, "sqlmock")}
+	query := "SELECT " + groupMemberColumns + " FROM group_members WHERE group_id = ? AND membership_id IN (?, ?) ORDER BY id"
+	now := time.Date(2026, 9, 3, 8, 0, 0, 0, time.FixedZone("UTC+8", 8*60*60))
+	mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs("group-1", "membership-1", "membership-2").WillReturnRows(
+		sqlmock.NewRows([]string{"id", "tenant_id", "group_id", "membership_id", "status", "version", "created_at", "updated_at", "created_by", "updated_by"}).
+			AddRow("assignment-1", "tenant-1", "group-1", "membership-1", "active", 1, now, now, "admin", "admin"),
+	)
+	items, err := repository.BatchGetGroupMembers(t.Context(), "group-1", []string{"membership-1", "membership-2"})
+	if err != nil || len(items) != 1 || items[0].MembershipID != "membership-1" {
+		t.Fatalf("BatchGetGroupMembers() = (%+v, %v)", items, err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
 	}
 }
 

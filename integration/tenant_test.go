@@ -139,6 +139,10 @@ func TestTenantRepositoryCompatibility(t *testing.T) {
 			if err := repository.CreateGroupMember(ctx, db, groupMember); err != nil {
 				t.Fatal(err)
 			}
+			groupMemberBatch, err := repository.BatchGetGroupMembers(ctx, group.ID, []string{membership.ID, uuid.NewString()})
+			if err != nil || len(groupMemberBatch) != 1 || groupMemberBatch[0].ID != groupMember.ID {
+				t.Fatalf("BatchGetGroupMembers() = (%+v, %v)", groupMemberBatch, err)
+			}
 			foundGroupMember, err := repository.GetGroupMember(ctx, group.ID, membership.ID)
 			if err != nil || foundGroupMember.ID != groupMember.ID {
 				t.Fatalf("GetGroupMember() = (%+v, %v)", foundGroupMember, err)

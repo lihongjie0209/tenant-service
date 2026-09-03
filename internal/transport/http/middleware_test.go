@@ -135,7 +135,15 @@ func TestTenantHTTPRequirementSeparatesPlatformDirectoryFromTenantResources(t *t
 			t.Fatalf("route %q scope = %v, want platform", route, requirement.Scope)
 		}
 	}
-	for _, route := range []string{"/api/v1/memberships/list", "/api/v1/organization-units/list", "/api/v1/groups/list"} {
+	for _, route := range []string{
+		"/api/v1/memberships/list",
+		"/api/v1/memberships/batch-get",
+		"/api/v1/memberships/directory/search",
+		"/api/v1/organization-units/list",
+		"/api/v1/groups/list",
+		"/api/v1/groups/search",
+		"/api/v1/groups/members/batch-get",
+	} {
 		requirement, _ := tenantHTTPRequirement(route)
 		if requirement.Scope != platformauthz.ScopePrincipal {
 			t.Fatalf("route %q scope = %v, want principal-derived", route, requirement.Scope)

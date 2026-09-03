@@ -88,6 +88,7 @@ func NewServer(lc fx.Lifecycle, cfg config.Config, handler *Handler, authService
 	api.POST("/groups/member-add", handler.AddGroupMember)
 	api.POST("/groups/member-remove", handler.RemoveGroupMember)
 	api.POST("/groups/members/list", handler.ListGroupMembers)
+	api.POST("/groups/members/batch-get", handler.BatchGetGroupMembers)
 	api.POST("/groups/list", handler.ListGroups)
 	api.POST("/groups/search", handler.SearchGroups)
 	api.POST("/quotas/get", handler.GetQuota)
