@@ -104,6 +104,10 @@ type CreateOrganizationUnitRequest struct {
 type GetOrganizationUnitRequest struct {
 	OrganizationUnitID string `json:"organization_unit_id" binding:"required"`
 }
+type BatchGetOrganizationUnitsRequest struct {
+	TenantID            string   `json:"tenant_id" binding:"required"`
+	OrganizationUnitIDs []string `json:"organization_unit_ids" binding:"required"`
+}
 type UpdateOrganizationUnitRequest struct {
 	OrganizationUnitID string `json:"organization_unit_id" binding:"required"`
 	ParentID           string `json:"parent_id"`
@@ -125,6 +129,9 @@ type TreeOrganizationUnitsRequest struct {
 }
 type OrganizationUnitsResponseBody struct {
 	OrganizationUnits []OrganizationUnitBody `json:"organization_units"`
+}
+type OrganizationUnitBatchBody struct {
+	Items []OrganizationUnitBody `json:"items"`
 }
 type OrganizationUnitTreeNodeBody struct {
 	OrganizationUnitBody
@@ -643,6 +650,29 @@ func (h *Handler) GetOrganizationUnit(c *gin.Context) {
 		return
 	}
 	OK(c, organizationUnitBody(value))
+}
+
+// BatchGetOrganizationUnits godoc
+// @Summary Get a bounded set of organization units by ID
+// @Tags organization-units
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body BatchGetOrganizationUnitsRequest true "Tenant and organization unit IDs (maximum 100)"
+// @Success 200 {object} Response{body=OrganizationUnitBatchBody}
+// @Router /api/v1/organization-units/batch-get [post]
+func (h *Handler) BatchGetOrganizationUnits(c *gin.Context) {
+	var request BatchGetOrganizationUnitsRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	items, err := h.tenants.BatchGetOrganizationUnits(c.Request.Context(), request.TenantID, request.OrganizationUnitIDs)
+	if err != nil {
+		Fail(c, h.logger, err)
+		return
+	}
+	OK(c, OrganizationUnitBatchBody{Items: mapBodies(items, organizationUnitBody)})
 }
 
 // UpdateOrganizationUnit godoc

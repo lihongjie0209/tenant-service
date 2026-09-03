@@ -77,6 +77,7 @@ func NewServer(lc fx.Lifecycle, cfg config.Config, handler *Handler, authService
 	api.POST("/memberships/directory/search", handler.SearchMembershipDirectory)
 	api.POST("/organization-units/create", handler.CreateOrganizationUnit)
 	api.POST("/organization-units/get", handler.GetOrganizationUnit)
+	api.POST("/organization-units/batch-get", handler.BatchGetOrganizationUnits)
 	api.POST("/organization-units/update", handler.UpdateOrganizationUnit)
 	api.POST("/organization-units/list", handler.ListOrganizationUnits)
 	api.POST("/organization-units/tree", handler.TreeOrganizationUnits)

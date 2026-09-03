@@ -111,6 +111,9 @@ func (f *fakeRepository) ListMemberships(context.Context, string, string, string
 func (f *fakeRepository) BatchGetMemberships(context.Context, string, []string) ([]Membership, error) {
 	return []Membership{f.membership}, nil
 }
+func (f *fakeRepository) BatchGetOrganizationUnits(context.Context, string, []string) ([]OrganizationUnit, error) {
+	return []OrganizationUnit{f.organization}, nil
+}
 func (f *fakeRepository) FindMembershipsByUserIDs(context.Context, string, []string, string) ([]Membership, error) {
 	return []Membership{f.membership}, nil
 }
@@ -119,6 +122,18 @@ type capturingBatchMembershipRepository struct {
 	fakeRepository
 	tenantID string
 	ids      []string
+}
+
+type capturingBatchOrganizationRepository struct {
+	fakeRepository
+	tenantID string
+	ids      []string
+}
+
+func (r *capturingBatchOrganizationRepository) BatchGetOrganizationUnits(_ context.Context, tenantID string, ids []string) ([]OrganizationUnit, error) {
+	r.tenantID = tenantID
+	r.ids = append([]string(nil), ids...)
+	return []OrganizationUnit{{ID: ids[0], TenantID: tenantID}}, nil
 }
 
 type capturingGroupSearchRepository struct {
@@ -359,6 +374,27 @@ func TestService_BatchGetMembershipsValidatesAndDeduplicatesIDs(t *testing.T) {
 	}
 }
 
+func TestService_BatchGetOrganizationUnitsValidatesAndDeduplicatesIDs(t *testing.T) {
+	t.Parallel()
+	repository := &capturingBatchOrganizationRepository{}
+	service := NewService(repository, nil, nil)
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "service-1", Type: principal.TypeServiceAccount})
+	items, err := service.BatchGetOrganizationUnits(ctx, " tenant-1 ", []string{" unit-1 ", "unit-1"})
+	if err != nil || len(items) != 1 || repository.tenantID != "tenant-1" || len(repository.ids) != 1 || repository.ids[0] != "unit-1" {
+		t.Fatalf("BatchGetOrganizationUnits() items=%+v tenant=%q ids=%v err=%v", items, repository.tenantID, repository.ids, err)
+	}
+	if _, err := service.BatchGetOrganizationUnits(ctx, "tenant-1", []string{""}); err == nil {
+		t.Fatal("BatchGetOrganizationUnits() accepted an empty ID")
+	}
+	tooMany := make([]string, 101)
+	for index := range tooMany {
+		tooMany[index] = fmt.Sprintf("unit-%d", index)
+	}
+	if _, err := service.BatchGetOrganizationUnits(ctx, "tenant-1", tooMany); err == nil {
+		t.Fatal("BatchGetOrganizationUnits() accepted more than 100 IDs")
+	}
+}
+
 func TestService_FindMembershipsByUserIDsValidatesInput(t *testing.T) {
 	t.Parallel()
 	service := NewService(&fakeRepository{}, &database.Transactor{}, nil)
@@ -444,6 +480,29 @@ func TestSQLRepository_BatchGetMembershipsScopesIDsToTenant(t *testing.T) {
 	}
 	if len(items) != 1 || items[0].TenantID != "tenant-1" {
 		t.Fatalf("BatchGetMemberships() = %+v", items)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSQLRepository_BatchGetOrganizationUnitsScopesIDsToTenant(t *testing.T) {
+	t.Parallel()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	repository := &SQLRepository{db: sqlx.NewDb(db, "sqlmock")}
+	query := "SELECT " + organizationColumns + " FROM organization_units WHERE tenant_id = ? AND id IN (?, ?) ORDER BY id"
+	now := time.Date(2026, 8, 31, 22, 0, 0, 0, time.FixedZone("UTC+8", 8*60*60))
+	mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs("tenant-1", "unit-1", "unit-2").WillReturnRows(
+		sqlmock.NewRows([]string{"id", "tenant_id", "parent_id", "code", "name", "path", "status", "version", "created_at", "updated_at", "created_by", "updated_by"}).
+			AddRow("unit-1", "tenant-1", "", "unit-1", "Unit 1", "/unit-1/", "active", 1, now, now, "admin-1", "admin-1"),
+	)
+	items, err := repository.BatchGetOrganizationUnits(t.Context(), "tenant-1", []string{"unit-1", "unit-2"})
+	if err != nil || len(items) != 1 || items[0].TenantID != "tenant-1" {
+		t.Fatalf("BatchGetOrganizationUnits() = (%+v, %v)", items, err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)

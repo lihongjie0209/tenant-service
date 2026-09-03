@@ -907,6 +907,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/organization-units/batch-get": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "organization-units"
+                ],
+                "summary": "Get a bounded set of organization units by ID",
+                "parameters": [
+                    {
+                        "description": "Tenant and organization unit IDs (maximum 100)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.BatchGetOrganizationUnitsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.OrganizationUnitBatchBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/organization-units/create": {
             "post": {
                 "security": [
@@ -1967,6 +2017,24 @@ const docTemplate = `{
                 }
             }
         },
+        "httptransport.BatchGetOrganizationUnitsRequest": {
+            "type": "object",
+            "required": [
+                "organization_unit_ids",
+                "tenant_id"
+            ],
+            "properties": {
+                "organization_unit_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
         "httptransport.ConsumeQuotaRequest": {
             "type": "object",
             "required": [
@@ -2560,6 +2628,17 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "httptransport.OrganizationUnitBatchBody": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httptransport.OrganizationUnitBody"
+                    }
                 }
             }
         },

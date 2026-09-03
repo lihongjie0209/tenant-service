@@ -32,6 +32,7 @@ type Repository interface {
 	AddOutbox(context.Context, sqlx.ExtContext, OutboxEvent) error
 	CreateOrganizationUnit(context.Context, sqlx.ExtContext, OrganizationUnit) error
 	GetOrganizationUnit(context.Context, string) (OrganizationUnit, error)
+	BatchGetOrganizationUnits(context.Context, string, []string) ([]OrganizationUnit, error)
 	ListOrganizationUnits(context.Context, string) ([]OrganizationUnit, error)
 	UpdateOrganizationUnit(context.Context, sqlx.ExtContext, OrganizationUnit, string) error
 	ResolveOrganizationScope(context.Context, string, string) ([]string, error)
@@ -239,6 +240,18 @@ func (r *SQLRepository) GetOrganizationUnit(ctx context.Context, id string) (Org
 		return OrganizationUnit{}, mapNotFound(err, "select organization unit")
 	}
 	return value, nil
+}
+
+func (r *SQLRepository) BatchGetOrganizationUnits(ctx context.Context, tenantID string, ids []string) ([]OrganizationUnit, error) {
+	query, args, err := sqlx.In("SELECT "+organizationColumns+" FROM organization_units WHERE tenant_id = ? AND id IN (?) ORDER BY id", tenantID, ids)
+	if err != nil {
+		return nil, fmt.Errorf("build batch organization unit query: %w", err)
+	}
+	items := make([]OrganizationUnit, 0, len(ids))
+	if err := r.db.SelectContext(ctx, &items, r.db.Rebind(query), args...); err != nil {
+		return nil, fmt.Errorf("batch get organization units: %w", err)
+	}
+	return items, nil
 }
 
 func (r *SQLRepository) ListOrganizationUnits(ctx context.Context, tenantID string) ([]OrganizationUnit, error) {

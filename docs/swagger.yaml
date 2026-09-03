@@ -84,6 +84,18 @@ definitions:
     - membership_ids
     - tenant_id
     type: object
+  httptransport.BatchGetOrganizationUnitsRequest:
+    properties:
+      organization_unit_ids:
+        items:
+          type: string
+        type: array
+      tenant_id:
+        type: string
+    required:
+    - organization_unit_ids
+    - tenant_id
+    type: object
   httptransport.ConsumeQuotaRequest:
     properties:
       amount:
@@ -473,6 +485,13 @@ definitions:
         type: integer
       total:
         type: integer
+    type: object
+  httptransport.OrganizationUnitBatchBody:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/httptransport.OrganizationUnitBody'
+        type: array
     type: object
   httptransport.OrganizationUnitBody:
     properties:
@@ -1324,6 +1343,34 @@ paths:
       summary: Update a tenant membership using optimistic locking
       tags:
       - memberships
+  /api/v1/organization-units/batch-get:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant and organization unit IDs (maximum 100)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.BatchGetOrganizationUnitsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.OrganizationUnitBatchBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: Get a bounded set of organization units by ID
+      tags:
+      - organization-units
   /api/v1/organization-units/create:
     post:
       consumes:

@@ -447,6 +447,37 @@ func (s *Service) GetOrganizationUnit(ctx context.Context, id string) (Organizat
 	return value, translate(err)
 }
 
+func (s *Service) BatchGetOrganizationUnits(ctx context.Context, tenantID string, ids []string) ([]OrganizationUnit, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, apperror.Invalid("tenant_id is required", nil)
+	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return nil, err
+	}
+	unique := make([]string, 0, len(ids))
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return nil, apperror.Invalid("organization_unit_ids must not contain empty values", nil)
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return []OrganizationUnit{}, nil
+	}
+	if len(unique) > 100 {
+		return nil, apperror.Invalid("organization_unit_ids must not contain more than 100 values", nil)
+	}
+	items, err := s.repository.BatchGetOrganizationUnits(ctx, tenantID, unique)
+	return items, translate(err)
+}
+
 func (s *Service) ListOrganizationUnits(ctx context.Context, tenantID string) ([]OrganizationUnit, error) {
 	if strings.TrimSpace(tenantID) == "" {
 		return nil, apperror.Invalid("tenant_id is required", nil)
