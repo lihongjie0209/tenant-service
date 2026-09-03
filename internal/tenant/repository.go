@@ -35,6 +35,8 @@ type Repository interface {
 	GetOrganizationUnit(context.Context, string) (OrganizationUnit, error)
 	BatchGetOrganizationUnits(context.Context, string, []string) ([]OrganizationUnit, error)
 	ListOrganizationUnits(context.Context, string) ([]OrganizationUnit, error)
+	ListOrganizationChildren(context.Context, string, string, string, int) ([]OrganizationTreeNode, bool, error)
+	SearchOrganizationUnitsWithAncestors(context.Context, string, string, string, int) ([]OrganizationUnit, bool, error)
 	UpdateOrganizationUnit(context.Context, sqlx.ExtContext, OrganizationUnit, string) error
 	ResolveOrganizationScope(context.Context, string, string) ([]string, error)
 	CreateInvitation(context.Context, sqlx.ExtContext, Invitation) error

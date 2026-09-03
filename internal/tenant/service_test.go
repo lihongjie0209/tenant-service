@@ -193,6 +193,12 @@ func (f *fakeRepository) GetOrganizationUnit(_ context.Context, id string) (Orga
 func (f *fakeRepository) ListOrganizationUnits(context.Context, string) ([]OrganizationUnit, error) {
 	return []OrganizationUnit{f.organization}, nil
 }
+func (f *fakeRepository) ListOrganizationChildren(context.Context, string, string, string, int) ([]OrganizationTreeNode, bool, error) {
+	return []OrganizationTreeNode{{Item: f.organization}}, false, nil
+}
+func (f *fakeRepository) SearchOrganizationUnitsWithAncestors(context.Context, string, string, string, int) ([]OrganizationUnit, bool, error) {
+	return []OrganizationUnit{f.organization}, false, nil
+}
 func (f *fakeRepository) UpdateOrganizationUnit(_ context.Context, _ sqlx.ExtContext, value OrganizationUnit, _ string) error {
 	f.organization = value
 	return f.updateErr

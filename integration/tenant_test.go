@@ -98,6 +98,18 @@ func TestTenantRepositoryCompatibility(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			organizationBatch, err := repository.BatchGetOrganizationUnits(ctx, tenantValue.ID, []string{child.ID, uuid.NewString()})
+			if err != nil || len(organizationBatch) != 1 || organizationBatch[0].ID != child.ID {
+				t.Fatalf("BatchGetOrganizationUnits() = (%+v, %v)", organizationBatch, err)
+			}
+			children, truncated, err := repository.ListOrganizationChildren(ctx, tenantValue.ID, rootA.ID, "active", 10)
+			if err != nil || truncated || len(children) != 1 || children[0].Item.ID != child.ID || !children[0].HasChildren {
+				t.Fatalf("ListOrganizationChildren() = (%+v, %v, %v)", children, truncated, err)
+			}
+			searched, truncated, err := repository.SearchOrganizationUnitsWithAncestors(ctx, tenantValue.ID, "grandchild", "active", 10)
+			if err != nil || truncated || len(searched) != 3 || searched[0].ID != rootA.ID || searched[1].ID != child.ID || searched[2].ID != grandchild.ID {
+				t.Fatalf("SearchOrganizationUnitsWithAncestors() = (%+v, %v, %v)", searched, truncated, err)
+			}
 			oldChildPath := child.Path
 			child.ParentID, child.Path, child.UpdatedAt = rootB.ID, rootB.Path+child.ID+"/", now.Add(time.Second)
 			if err := repository.UpdateOrganizationUnit(ctx, db, child, oldChildPath); err != nil {
