@@ -501,6 +501,48 @@ definitions:
       version:
         type: integer
     type: object
+  httptransport.OrganizationUnitTreeNodeBody:
+    properties:
+      children:
+        items:
+          $ref: '#/definitions/httptransport.OrganizationUnitTreeNodeBody'
+        type: array
+      code:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      has_children:
+        type: boolean
+      id:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: string
+      path:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: string
+      version:
+        type: integer
+    type: object
+  httptransport.OrganizationUnitTreeResponseBody:
+    properties:
+      nodes:
+        items:
+          $ref: '#/definitions/httptransport.OrganizationUnitTreeNodeBody'
+        type: array
+      truncated:
+        type: boolean
+    type: object
   httptransport.OrganizationUnitsResponseBody:
     properties:
       organization_units:
@@ -675,6 +717,36 @@ definitions:
         type: array
       total:
         type: integer
+    type: object
+  httptransport.TreeOrganizationUnitsRequest:
+    properties:
+      keyword:
+        type: string
+      max_depth:
+        maximum: 32
+        minimum: 1
+        type: integer
+      max_nodes:
+        maximum: 5000
+        minimum: 1
+        type: integer
+      mode:
+        enum:
+        - lazy_children
+        - search_with_ancestors
+        type: string
+      parent_id:
+        type: string
+      status:
+        enum:
+        - active
+        - disabled
+        type: string
+      tenant_id:
+        type: string
+    required:
+    - mode
+    - tenant_id
     type: object
   httptransport.UpdateGroupRequest:
     properties:
@@ -1334,6 +1406,38 @@ paths:
       security:
       - Bearer: []
       summary: List a tenant's organization units
+      tags:
+      - organization-units
+  /api/v1/organization-units/tree:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Lazy children or search with ancestors
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.TreeOrganizationUnitsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.OrganizationUnitTreeResponseBody'
+              type: object
+        "400":
+          description: 'Code 10001: invalid tree limits'
+          schema:
+            $ref: '#/definitions/httptransport.Response'
+      security:
+      - Bearer: []
+      summary: Read a bounded organization tree
       tags:
       - organization-units
   /api/v1/organization-units/update:

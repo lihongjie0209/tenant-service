@@ -35,8 +35,9 @@ type DictionaryPage struct {
 }
 
 type OrganizationTreeNode struct {
-	Item     OrganizationUnit
-	Children []OrganizationTreeNode
+	Item        OrganizationUnit
+	Children    []OrganizationTreeNode
+	HasChildren bool
 }
 
 type DictionaryProvider struct {
@@ -232,7 +233,7 @@ func buildOrganizationTree(items []OrganizationUnit, mode, parentID string, maxD
 				next[key] = value
 			}
 			next[item.ID] = true
-			result = append(result, OrganizationTreeNode{Item: item, Children: build(item.ID, depth+1, next)})
+			result = append(result, OrganizationTreeNode{Item: item, Children: build(item.ID, depth+1, next), HasChildren: len(children[item.ID]) > 0})
 		}
 		return result
 	}

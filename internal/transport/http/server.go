@@ -79,6 +79,7 @@ func NewServer(lc fx.Lifecycle, cfg config.Config, handler *Handler, authService
 	api.POST("/organization-units/get", handler.GetOrganizationUnit)
 	api.POST("/organization-units/update", handler.UpdateOrganizationUnit)
 	api.POST("/organization-units/list", handler.ListOrganizationUnits)
+	api.POST("/organization-units/tree", handler.TreeOrganizationUnits)
 	api.POST("/invitations/create", handler.CreateInvitation)
 	api.POST("/invitations/accept", handler.AcceptInvitation)
 	api.POST("/invitations/revoke", handler.RevokeInvitation)

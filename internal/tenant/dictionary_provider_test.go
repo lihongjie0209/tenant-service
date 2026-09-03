@@ -31,7 +31,7 @@ func TestDictionaryProvider_TreeSearchIncludesAncestorsAndBoundsNodes(t *testing
 	if err != nil {
 		t.Fatalf("Tree() error = %v", err)
 	}
-	if truncated || len(roots) != 1 || roots[0].Item.Code != "rd" || len(roots[0].Children) != 1 || roots[0].Children[0].Item.Code != "rd-platform" {
+	if truncated || len(roots) != 1 || roots[0].Item.Code != "rd" || !roots[0].HasChildren || len(roots[0].Children) != 1 || roots[0].Children[0].Item.Code != "rd-platform" {
 		t.Fatalf("Tree() = %+v, truncated=%v", roots, truncated)
 	}
 	_, truncated, err = provider.Tree(t.Context(), "tenant-1", OrganizationUnitDictionaryCode, "full", "", "", 8, 1, nil)

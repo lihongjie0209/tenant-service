@@ -1054,6 +1054,62 @@
                 }
             }
         },
+        "/api/v1/organization-units/tree": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "organization-units"
+                ],
+                "summary": "Read a bounded organization tree",
+                "parameters": [
+                    {
+                        "description": "Lazy children or search with ancestors",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.TreeOrganizationUnitsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.OrganizationUnitTreeResponseBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Code 10001: invalid tree limits",
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/organization-units/update": {
             "post": {
                 "security": [
@@ -2545,6 +2601,70 @@
                 }
             }
         },
+        "httptransport.OrganizationUnitTreeNodeBody": {
+            "type": "object",
+            "properties": {
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httptransport.OrganizationUnitTreeNodeBody"
+                    }
+                },
+                "code": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "has_children": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httptransport.OrganizationUnitTreeResponseBody": {
+            "type": "object",
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httptransport.OrganizationUnitTreeNodeBody"
+                    }
+                },
+                "truncated": {
+                    "type": "boolean"
+                }
+            }
+        },
         "httptransport.OrganizationUnitsResponseBody": {
             "type": "object",
             "properties": {
@@ -2808,6 +2928,48 @@
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "httptransport.TreeOrganizationUnitsRequest": {
+            "type": "object",
+            "required": [
+                "mode",
+                "tenant_id"
+            ],
+            "properties": {
+                "keyword": {
+                    "type": "string"
+                },
+                "max_depth": {
+                    "type": "integer",
+                    "maximum": 32,
+                    "minimum": 1
+                },
+                "max_nodes": {
+                    "type": "integer",
+                    "maximum": 5000,
+                    "minimum": 1
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "lazy_children",
+                        "search_with_ancestors"
+                    ]
+                },
+                "parent_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "active",
+                        "disabled"
+                    ]
+                },
+                "tenant_id": {
+                    "type": "string"
                 }
             }
         },

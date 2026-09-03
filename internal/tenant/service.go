@@ -458,6 +458,35 @@ func (s *Service) ListOrganizationUnits(ctx context.Context, tenantID string) ([
 	return items, translate(err)
 }
 
+func (s *Service) TreeOrganizationUnits(ctx context.Context, tenantID, mode, parentID, keyword, status string, maxDepth, maxNodes int) ([]OrganizationTreeNode, bool, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, false, apperror.Invalid("tenant_id is required", nil)
+	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return nil, false, err
+	}
+	mode = strings.TrimSpace(mode)
+	if mode == "lazy_children" {
+		mode = "children"
+	}
+	nodes, truncated, err := NewDictionaryProvider(s.repository).Tree(
+		ctx,
+		tenantID,
+		OrganizationUnitDictionaryCode,
+		mode,
+		strings.TrimSpace(parentID),
+		strings.TrimSpace(keyword),
+		maxDepth,
+		maxNodes,
+		map[string]string{"status": strings.TrimSpace(status)},
+	)
+	if errors.Is(err, ErrDictionaryRequest) {
+		return nil, false, apperror.Invalid("invalid organization tree request", err)
+	}
+	return nodes, truncated, translate(err)
+}
+
 func (s *Service) UpdateOrganizationUnit(ctx context.Context, id, parentID, name, status string, version int64) (result OrganizationUnit, resultErr error) {
 	if strings.TrimSpace(id) == "" || strings.TrimSpace(name) == "" || version < 1 || (status != "active" && status != "disabled") {
 		return OrganizationUnit{}, apperror.Invalid("invalid organization unit update", nil)

@@ -114,8 +114,26 @@ type UpdateOrganizationUnitRequest struct {
 type ListOrganizationUnitsRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
 }
+type TreeOrganizationUnitsRequest struct {
+	TenantID string `json:"tenant_id" binding:"required"`
+	Mode     string `json:"mode" binding:"required,oneof=lazy_children search_with_ancestors"`
+	ParentID string `json:"parent_id"`
+	Keyword  string `json:"keyword"`
+	Status   string `json:"status" binding:"omitempty,oneof=active disabled"`
+	MaxDepth int    `json:"max_depth" binding:"omitempty,min=1,max=32"`
+	MaxNodes int    `json:"max_nodes" binding:"omitempty,min=1,max=5000"`
+}
 type OrganizationUnitsResponseBody struct {
 	OrganizationUnits []OrganizationUnitBody `json:"organization_units"`
+}
+type OrganizationUnitTreeNodeBody struct {
+	OrganizationUnitBody
+	HasChildren bool                           `json:"has_children"`
+	Children    []OrganizationUnitTreeNodeBody `json:"children"`
+}
+type OrganizationUnitTreeResponseBody struct {
+	Nodes     []OrganizationUnitTreeNodeBody `json:"nodes"`
+	Truncated bool                           `json:"truncated"`
 }
 type CreateInvitationRequest struct {
 	TenantID         string `json:"tenant_id" binding:"required"`
@@ -671,6 +689,42 @@ func (h *Handler) ListOrganizationUnits(c *gin.Context) {
 		return
 	}
 	OK(c, OrganizationUnitsResponseBody{OrganizationUnits: mapBodies(value, organizationUnitBody)})
+}
+
+// TreeOrganizationUnits godoc
+// @Summary Read a bounded organization tree
+// @Tags organization-units
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body TreeOrganizationUnitsRequest true "Lazy children or search with ancestors"
+// @Success 200 {object} Response{body=OrganizationUnitTreeResponseBody}
+// @Failure 400 {object} Response "Code 10001: invalid tree limits"
+// @Router /api/v1/organization-units/tree [post]
+func (h *Handler) TreeOrganizationUnits(c *gin.Context) {
+	var request TreeOrganizationUnitsRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	nodes, truncated, err := h.tenants.TreeOrganizationUnits(c.Request.Context(), request.TenantID, request.Mode, request.ParentID, request.Keyword, request.Status, request.MaxDepth, request.MaxNodes)
+	if err != nil {
+		Fail(c, h.logger, err)
+		return
+	}
+	OK(c, OrganizationUnitTreeResponseBody{Nodes: organizationTreeNodeBodies(nodes), Truncated: truncated})
+}
+
+func organizationTreeNodeBodies(nodes []tenant.OrganizationTreeNode) []OrganizationUnitTreeNodeBody {
+	result := make([]OrganizationUnitTreeNodeBody, 0, len(nodes))
+	for _, node := range nodes {
+		result = append(result, OrganizationUnitTreeNodeBody{
+			OrganizationUnitBody: organizationUnitBody(node.Item),
+			HasChildren:          node.HasChildren,
+			Children:             organizationTreeNodeBodies(node.Children),
+		})
+	}
+	return result
 }
 
 // CreateInvitation godoc
