@@ -61,6 +61,9 @@ type AddMembershipRequest struct {
 	UserID                    string `json:"user_id" binding:"required"`
 	PrimaryOrganizationUnitID string `json:"primary_organization_unit_id"`
 }
+type GetMembershipRequest struct {
+	MembershipID string `json:"membership_id" binding:"required"`
+}
 type UpdateMembershipRequest struct {
 	MembershipID              string `json:"membership_id" binding:"required"`
 	Status                    string `json:"status" binding:"required"`
@@ -170,6 +173,9 @@ type CreateGroupRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
 	Code     string `json:"code" binding:"required"`
 	Name     string `json:"name" binding:"required"`
+}
+type GetGroupRequest struct {
+	GroupID string `json:"group_id" binding:"required"`
 }
 type UpdateGroupRequest struct {
 	GroupID string `json:"group_id" binding:"required"`
@@ -421,6 +427,29 @@ func (h *Handler) AddMembership(c *gin.Context) {
 		return
 	}
 	value, err := h.tenants.AddMembership(c.Request.Context(), request.TenantID, request.UserID, request.PrimaryOrganizationUnitID)
+	if err != nil {
+		Fail(c, h.logger, err)
+		return
+	}
+	OK(c, membershipBody(value))
+}
+
+// GetMembership godoc
+// @Summary Get a membership by ID
+// @Tags memberships
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body GetMembershipRequest true "Membership ID"
+// @Success 200 {object} Response{body=MembershipBody}
+// @Router /api/v1/memberships/get [post]
+func (h *Handler) GetMembership(c *gin.Context) {
+	var request GetMembershipRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	value, err := h.tenants.GetMembership(c.Request.Context(), request.MembershipID)
 	if err != nil {
 		Fail(c, h.logger, err)
 		return
@@ -896,6 +925,29 @@ func (h *Handler) CreateGroup(c *gin.Context) {
 		return
 	}
 	value, err := h.tenants.CreateGroup(c.Request.Context(), request.TenantID, request.Code, request.Name)
+	if err != nil {
+		Fail(c, h.logger, err)
+		return
+	}
+	OK(c, groupBody(value))
+}
+
+// GetGroup godoc
+// @Summary Get a member group by ID
+// @Tags groups
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body GetGroupRequest true "Group ID"
+// @Success 200 {object} Response{body=GroupBody}
+// @Router /api/v1/groups/get [post]
+func (h *Handler) GetGroup(c *gin.Context) {
+	var request GetGroupRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	value, err := h.tenants.GetGroup(c.Request.Context(), request.GroupID)
 	if err != nil {
 		Fail(c, h.logger, err)
 		return

@@ -358,6 +358,8 @@ func Authorization(enabled bool, authorizer platformauthz.Authorizer, logger *sl
 
 func tenantHTTPRequirement(route string) (platformauthz.Requirement, bool) {
 	requirements := map[string]platformauthz.Requirement{
+		"/api/v1/memberships/get":       {Resource: "tenant.membership", Action: "read", Scope: platformauthz.ScopePrincipal},
+		"/api/v1/groups/get":            {Resource: "tenant.group", Action: "read", Scope: platformauthz.ScopePrincipal},
 		"/api/v1/tenants/manage/create": {Resource: "tenant.profile", Action: "create", Scope: platformauthz.ScopePlatform},
 		"/api/v1/tenants/get":           {Resource: "tenant.profile", Action: "read", Scope: platformauthz.ScopePlatform}, "/api/v1/tenants/update": {Resource: "tenant.profile", Action: "update", Scope: platformauthz.ScopePlatform}, "/api/v1/tenants/list": {Resource: "tenant.profile", Action: "list", Scope: platformauthz.ScopePlatform},
 		"/api/v1/memberships/add": {Resource: "tenant.membership", Action: "create", Scope: platformauthz.ScopePrincipal}, "/api/v1/memberships/update": {Resource: "tenant.membership", Action: "update", Scope: platformauthz.ScopePrincipal}, "/api/v1/memberships/list": {Resource: "tenant.membership", Action: "list", Scope: platformauthz.ScopePrincipal}, "/api/v1/memberships/batch-get": {Resource: "tenant.membership", Action: "list", Scope: platformauthz.ScopePrincipal}, "/api/v1/memberships/directory/search": {Resource: "tenant.membership", Action: "list", Scope: platformauthz.ScopePrincipal},

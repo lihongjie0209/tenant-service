@@ -65,6 +65,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/groups/get": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "groups"
+                ],
+                "summary": "Get a member group by ID",
+                "parameters": [
+                    {
+                        "description": "Group ID",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.GetGroupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.GroupBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/groups/list": {
             "post": {
                 "security": [
@@ -898,6 +948,56 @@ const docTemplate = `{
                                     "properties": {
                                         "body": {
                                             "$ref": "#/definitions/httptransport.MembershipDirectoryBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/memberships/get": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "memberships"
+                ],
+                "summary": "Get a membership by ID",
+                "parameters": [
+                    {
+                        "description": "Membership ID",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.GetMembershipRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.MembershipBody"
                                         }
                                     }
                                 }
@@ -2283,6 +2383,17 @@ const docTemplate = `{
                 }
             }
         },
+        "httptransport.GetGroupRequest": {
+            "type": "object",
+            "required": [
+                "group_id"
+            ],
+            "properties": {
+                "group_id": {
+                    "type": "string"
+                }
+            }
+        },
         "httptransport.GetInvitationRequest": {
             "type": "object",
             "required": [
@@ -2290,6 +2401,17 @@ const docTemplate = `{
             ],
             "properties": {
                 "invitation_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httptransport.GetMembershipRequest": {
+            "type": "object",
+            "required": [
+                "membership_id"
+            ],
+            "properties": {
+                "membership_id": {
                     "type": "string"
                 }
             }

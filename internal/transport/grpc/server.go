@@ -79,7 +79,9 @@ func tenantGRPCRequirement(enabled bool) platformauthz.GRPCResolver {
 			return platformauthz.Requirement{}, false
 		}
 		requirements := map[string]platformauthz.Requirement{
-			tenantv1.TenantService_GetTenant_FullMethodName: {Resource: "tenant.profile", Action: "read", Scope: platformauthz.ScopePlatform}, tenantv1.TenantService_ListTenants_FullMethodName: {Resource: "tenant.profile", Action: "list", Scope: platformauthz.ScopePlatform}, tenantv1.TenantService_UpdateTenant_FullMethodName: {Resource: "tenant.profile", Action: "update", Scope: platformauthz.ScopePlatform},
+			tenantv1.TenantService_GetMembership_FullMethodName: {Resource: "tenant.membership", Action: "read", Scope: platformauthz.ScopePrincipal},
+			tenantv1.TenantService_GetGroup_FullMethodName:      {Resource: "tenant.group", Action: "read", Scope: platformauthz.ScopePrincipal},
+			tenantv1.TenantService_GetTenant_FullMethodName:     {Resource: "tenant.profile", Action: "read", Scope: platformauthz.ScopePlatform}, tenantv1.TenantService_ListTenants_FullMethodName: {Resource: "tenant.profile", Action: "list", Scope: platformauthz.ScopePlatform}, tenantv1.TenantService_UpdateTenant_FullMethodName: {Resource: "tenant.profile", Action: "update", Scope: platformauthz.ScopePlatform},
 			tenantv1.TenantService_AddMembership_FullMethodName: {Resource: "tenant.membership", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_UpdateMembership_FullMethodName: {Resource: "tenant.membership", Action: "update", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListMemberships_FullMethodName: {Resource: "tenant.membership", Action: "list", Scope: platformauthz.ScopePrincipal},
 			tenantv1.TenantService_CreateOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_GetOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "read", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_UpdateOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "update", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListOrganizationUnits_FullMethodName: {Resource: "tenant.organization-unit", Action: "list", Scope: platformauthz.ScopePrincipal},
 			tenantv1.TenantService_CreateInvitation_FullMethodName: {Resource: "tenant.invitation", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_GetInvitation_FullMethodName: {Resource: "tenant.invitation", Action: "read", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_RevokeInvitation_FullMethodName: {Resource: "tenant.invitation", Action: "revoke", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListInvitations_FullMethodName: {Resource: "tenant.invitation", Action: "list", Scope: platformauthz.ScopePrincipal},
@@ -259,6 +261,13 @@ func (s *tenantServer) UpdateGroup(ctx context.Context, request *tenantv1.Update
 		return nil, grpcError(err)
 	}
 	return &tenantv1.UpdateGroupResponse{Group: toProtoGroup(value)}, nil
+}
+func (s *tenantServer) GetGroup(ctx context.Context, request *tenantv1.GetGroupRequest) (*tenantv1.GetGroupResponse, error) {
+	value, err := s.service.GetGroup(ctx, request.GetGroupId())
+	if err != nil {
+		return nil, grpcError(err)
+	}
+	return &tenantv1.GetGroupResponse{Group: toProtoGroup(value)}, nil
 }
 func (s *tenantServer) AddGroupMember(ctx context.Context, request *tenantv1.AddGroupMemberRequest) (*tenantv1.AddGroupMemberResponse, error) {
 	if err := s.service.AddGroupMember(ctx, request.GetGroupId(), request.GetMembershipId()); err != nil {

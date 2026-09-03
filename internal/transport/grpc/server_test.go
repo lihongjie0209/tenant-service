@@ -18,10 +18,10 @@ func TestTenantGRPCRequirementCoverageAndInternalExclusions(t *testing.T) {
 	resolve := tenantGRPCRequirement(true)
 	protected := []string{
 		tenantv1.TenantService_GetTenant_FullMethodName, tenantv1.TenantService_ListTenants_FullMethodName, tenantv1.TenantService_UpdateTenant_FullMethodName,
-		tenantv1.TenantService_AddMembership_FullMethodName, tenantv1.TenantService_UpdateMembership_FullMethodName, tenantv1.TenantService_ListMemberships_FullMethodName,
+		tenantv1.TenantService_AddMembership_FullMethodName, tenantv1.TenantService_GetMembership_FullMethodName, tenantv1.TenantService_UpdateMembership_FullMethodName, tenantv1.TenantService_ListMemberships_FullMethodName,
 		tenantv1.TenantService_CreateOrganizationUnit_FullMethodName, tenantv1.TenantService_GetOrganizationUnit_FullMethodName, tenantv1.TenantService_UpdateOrganizationUnit_FullMethodName, tenantv1.TenantService_ListOrganizationUnits_FullMethodName,
 		tenantv1.TenantService_CreateInvitation_FullMethodName, tenantv1.TenantService_GetInvitation_FullMethodName, tenantv1.TenantService_RevokeInvitation_FullMethodName, tenantv1.TenantService_ListInvitations_FullMethodName,
-		tenantv1.TenantService_CreateGroup_FullMethodName, tenantv1.TenantService_UpdateGroup_FullMethodName, tenantv1.TenantService_AddGroupMember_FullMethodName, tenantv1.TenantService_GetGroupMember_FullMethodName, tenantv1.TenantService_RemoveGroupMember_FullMethodName, tenantv1.TenantService_ListGroupMembers_FullMethodName, tenantv1.TenantService_ListGroups_FullMethodName,
+		tenantv1.TenantService_CreateGroup_FullMethodName, tenantv1.TenantService_GetGroup_FullMethodName, tenantv1.TenantService_UpdateGroup_FullMethodName, tenantv1.TenantService_AddGroupMember_FullMethodName, tenantv1.TenantService_GetGroupMember_FullMethodName, tenantv1.TenantService_RemoveGroupMember_FullMethodName, tenantv1.TenantService_ListGroupMembers_FullMethodName, tenantv1.TenantService_ListGroups_FullMethodName,
 		tenantv1.TenantService_GetQuota_FullMethodName, tenantv1.TenantService_ListQuotas_FullMethodName, tenantv1.TenantService_SetQuota_FullMethodName, tenantv1.TenantService_ConsumeQuota_FullMethodName,
 	}
 	for _, method := range protected {
@@ -29,7 +29,7 @@ func TestTenantGRPCRequirementCoverageAndInternalExclusions(t *testing.T) {
 			t.Fatalf("method %q requirement = %+v, %v", method, requirement, ok)
 		}
 	}
-	excluded := []string{tenantv1.TenantService_CreateTenant_FullMethodName, tenantv1.TenantService_AcceptInvitation_FullMethodName, tenantv1.TenantService_ValidateMembership_FullMethodName, tenantv1.TenantService_GetMembership_FullMethodName, tenantv1.TenantService_ListUserTenants_FullMethodName, tenantv1.TenantService_ResolveOrganizationScope_FullMethodName}
+	excluded := []string{tenantv1.TenantService_CreateTenant_FullMethodName, tenantv1.TenantService_AcceptInvitation_FullMethodName, tenantv1.TenantService_ValidateMembership_FullMethodName, tenantv1.TenantService_ListUserTenants_FullMethodName, tenantv1.TenantService_ResolveOrganizationScope_FullMethodName}
 	for _, method := range excluded {
 		if _, ok := resolve(method); ok {
 			t.Fatalf("self-service/internal fact method %q must not recurse through tenant authorization", method)

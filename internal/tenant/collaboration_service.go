@@ -235,6 +235,20 @@ func (s *Service) UpdateGroup(ctx context.Context, id, name, status string, vers
 	}
 	return s.repository.GetGroup(ctx, id)
 }
+func (s *Service) GetGroup(ctx context.Context, id string) (Group, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return Group{}, apperror.Invalid("group_id is required", nil)
+	}
+	value, err := s.repository.GetGroup(ctx, id)
+	if err != nil {
+		return Group{}, translate(err)
+	}
+	if err := authorizeTenant(ctx, value.TenantID); err != nil {
+		return Group{}, err
+	}
+	return value, nil
+}
 func (s *Service) ListGroups(ctx context.Context, tenantID string) ([]Group, error) {
 	if err := authorizeTenant(ctx, tenantID); err != nil {
 		return nil, err

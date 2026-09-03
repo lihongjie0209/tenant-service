@@ -195,12 +195,26 @@ definitions:
       username:
         type: string
     type: object
+  httptransport.GetGroupRequest:
+    properties:
+      group_id:
+        type: string
+    required:
+    - group_id
+    type: object
   httptransport.GetInvitationRequest:
     properties:
       invitation_id:
         type: string
     required:
     - invitation_id
+    type: object
+  httptransport.GetMembershipRequest:
+    properties:
+      membership_id:
+        type: string
+    required:
+    - membership_id
     type: object
   httptransport.GetOrganizationUnitRequest:
     properties:
@@ -879,6 +893,34 @@ paths:
       summary: Create a tenant member group
       tags:
       - groups
+  /api/v1/groups/get:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Group ID
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.GetGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.GroupBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: Get a member group by ID
+      tags:
+      - groups
   /api/v1/groups/list:
     post:
       consumes:
@@ -1348,6 +1390,34 @@ paths:
       security:
       - Bearer: []
       summary: Search active tenant members by user identity
+      tags:
+      - memberships
+  /api/v1/memberships/get:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Membership ID
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.GetMembershipRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.MembershipBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: Get a membership by ID
       tags:
       - memberships
   /api/v1/memberships/list:
