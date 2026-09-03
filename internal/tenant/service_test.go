@@ -534,6 +534,33 @@ func TestSQLRepository_ListOrganizationChildrenIsBoundedAndReportsDescendants(t 
 	}
 }
 
+func TestSQLRepository_SearchOrganizationUnitsLoadsOnlyMatchedPathsAndAncestors(t *testing.T) {
+	t.Parallel()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	repository := &SQLRepository{db: sqlx.NewDb(db, "sqlmock")}
+	now := time.Date(2026, 8, 31, 22, 0, 0, 0, time.FixedZone("UTC+8", 8*60*60))
+	columns := []string{"id", "tenant_id", "parent_id", "code", "name", "path", "status", "version", "created_at", "updated_at", "created_by", "updated_by"}
+	searchQuery := "SELECT " + organizationColumns + " FROM organization_units WHERE tenant_id = ? AND status = ? AND (LOWER(code) LIKE ? OR LOWER(name) LIKE ?) ORDER BY path, id LIMIT ?"
+	mock.ExpectQuery(regexp.QuoteMeta(searchQuery)).WithArgs("tenant-1", "active", "%platform%", "%platform%", 3).WillReturnRows(
+		sqlmock.NewRows(columns).AddRow("child", "tenant-1", "root", "platform", "Platform", "/root/child/", "active", 1, now, now, "admin-1", "admin-1"),
+	)
+	ancestorQuery := "SELECT " + organizationColumns + " FROM organization_units WHERE tenant_id = ? AND id IN (?) ORDER BY id"
+	mock.ExpectQuery(regexp.QuoteMeta(ancestorQuery)).WithArgs("tenant-1", "root").WillReturnRows(
+		sqlmock.NewRows(columns).AddRow("root", "tenant-1", "", "root", "Root", "/root/", "active", 1, now, now, "admin-1", "admin-1"),
+	)
+	items, truncated, err := repository.SearchOrganizationUnitsWithAncestors(t.Context(), "tenant-1", " Platform ", "active", 2)
+	if err != nil || truncated || len(items) != 2 || items[0].ID != "root" || items[1].ID != "child" {
+		t.Fatalf("SearchOrganizationUnitsWithAncestors() = (%+v, %v, %v)", items, truncated, err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSQLRepository_FindMembershipsByUserIDsScopesTenantAndStatus(t *testing.T) {
 	t.Parallel()
 	db, mock, err := sqlmock.New()

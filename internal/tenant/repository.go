@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -302,6 +303,68 @@ func (r *SQLRepository) ListOrganizationChildren(ctx context.Context, tenantID, 
 		nodes = append(nodes, OrganizationTreeNode{Item: row.OrganizationUnit, Children: []OrganizationTreeNode{}, HasChildren: row.HasChildren})
 	}
 	return nodes, truncated, nil
+}
+
+func (r *SQLRepository) SearchOrganizationUnitsWithAncestors(ctx context.Context, tenantID, keyword, status string, limit int) ([]OrganizationUnit, bool, error) {
+	where := "tenant_id = ?"
+	args := []any{tenantID}
+	if status != "" {
+		where += " AND status = ?"
+		args = append(args, status)
+	}
+	keyword = strings.ToLower(strings.TrimSpace(keyword))
+	if keyword != "" {
+		where += " AND (LOWER(code) LIKE ? OR LOWER(name) LIKE ?)"
+		like := "%" + keyword + "%"
+		args = append(args, like, like)
+	}
+	args = append(args, limit+1)
+	matches := make([]OrganizationUnit, 0, min(limit+1, 101))
+	query := r.db.Rebind("SELECT " + organizationColumns + " FROM organization_units WHERE " + where + " ORDER BY path, id LIMIT ?")
+	if err := r.db.SelectContext(ctx, &matches, query, args...); err != nil {
+		return nil, false, fmt.Errorf("search organization units: %w", err)
+	}
+	truncated := len(matches) > limit
+	if truncated {
+		matches = matches[:limit]
+	}
+	byID := make(map[string]OrganizationUnit, len(matches))
+	ancestorIDs := make([]string, 0)
+	for _, item := range matches {
+		byID[item.ID] = item
+	}
+	for _, item := range matches {
+		for _, id := range strings.Split(strings.Trim(item.Path, "/"), "/") {
+			if id == "" {
+				continue
+			}
+			if _, exists := byID[id]; exists {
+				continue
+			}
+			byID[id] = OrganizationUnit{ID: id}
+			ancestorIDs = append(ancestorIDs, id)
+		}
+	}
+	for start := 0; start < len(ancestorIDs); start += 500 {
+		end := min(start+500, len(ancestorIDs))
+		ancestors, err := r.BatchGetOrganizationUnits(ctx, tenantID, ancestorIDs[start:end])
+		if err != nil {
+			return nil, false, err
+		}
+		for _, item := range ancestors {
+			if status == "" || item.Status == status {
+				byID[item.ID] = item
+			}
+		}
+	}
+	items := make([]OrganizationUnit, 0, len(byID))
+	for _, item := range byID {
+		if item.TenantID != "" {
+			items = append(items, item)
+		}
+	}
+	sortOrganizationUnits(items, "path", false)
+	return items, truncated, nil
 }
 
 func (r *SQLRepository) UpdateOrganizationUnit(ctx context.Context, exec sqlx.ExtContext, value OrganizationUnit, oldPath string) error {

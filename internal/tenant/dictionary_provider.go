@@ -22,6 +22,10 @@ type organizationChildrenRepository interface {
 	ListOrganizationChildren(context.Context, string, string, string, int) ([]OrganizationTreeNode, bool, error)
 }
 
+type organizationAncestorSearchRepository interface {
+	SearchOrganizationUnitsWithAncestors(context.Context, string, string, string, int) ([]OrganizationUnit, bool, error)
+}
+
 type DictionarySearch struct {
 	Keyword    string
 	Filters    map[string]string
@@ -101,6 +105,16 @@ func (p *DictionaryProvider) Tree(ctx context.Context, tenantID, code, mode, par
 	if mode == "children" && maxDepth == 1 {
 		if repository, ok := p.repository.(organizationChildrenRepository); ok {
 			return repository.ListOrganizationChildren(ctx, tenantID, parentID, filters["status"], maxNodes)
+		}
+	}
+	if mode == "search_with_ancestors" {
+		if repository, ok := p.repository.(organizationAncestorSearchRepository); ok {
+			items, searchTruncated, err := repository.SearchOrganizationUnitsWithAncestors(ctx, tenantID, keyword, filters["status"], maxNodes)
+			if err != nil {
+				return nil, false, err
+			}
+			roots, treeTruncated := buildOrganizationTree(items, mode, parentID, maxDepth, maxNodes)
+			return roots, searchTruncated || treeTruncated, nil
 		}
 	}
 	items, err := p.repository.ListOrganizationUnits(ctx, tenantID)
