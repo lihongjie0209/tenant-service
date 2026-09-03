@@ -26,6 +26,7 @@ type Repository interface {
 	ListUserTenants(context.Context, string, int, int) ([]Tenant, int64, error)
 	ListMemberships(context.Context, string, string, string, int, int) ([]Membership, int64, error)
 	BatchGetMemberships(context.Context, string, []string) ([]Membership, error)
+	FindMembershipsByUserIDs(context.Context, string, []string, string) ([]Membership, error)
 	ListTenants(context.Context, string, string, int, int) ([]Tenant, int64, error)
 	UpdateMembership(context.Context, sqlx.ExtContext, Membership) error
 	AddOutbox(context.Context, sqlx.ExtContext, OutboxEvent) error
@@ -162,6 +163,24 @@ func (r *SQLRepository) BatchGetMemberships(ctx context.Context, tenantID string
 	items := make([]Membership, 0, len(ids))
 	if err := r.db.SelectContext(ctx, &items, r.db.Rebind(query), args...); err != nil {
 		return nil, fmt.Errorf("batch get memberships: %w", err)
+	}
+	return items, nil
+}
+
+func (r *SQLRepository) FindMembershipsByUserIDs(ctx context.Context, tenantID string, userIDs []string, status string) ([]Membership, error) {
+	base := "SELECT " + membershipSelectColumns + " FROM memberships WHERE tenant_id = ? AND user_id IN (?)"
+	args := []any{tenantID, userIDs}
+	if status != "" {
+		base += " AND status = ?"
+		args = append(args, status)
+	}
+	query, queryArgs, err := sqlx.In(base+" ORDER BY id", args...)
+	if err != nil {
+		return nil, fmt.Errorf("build membership directory query: %w", err)
+	}
+	items := make([]Membership, 0, len(userIDs))
+	if err := r.db.SelectContext(ctx, &items, r.db.Rebind(query), queryArgs...); err != nil {
+		return nil, fmt.Errorf("find memberships by users: %w", err)
 	}
 	return items, nil
 }

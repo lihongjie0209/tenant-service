@@ -160,6 +160,17 @@ definitions:
       tenant:
         $ref: '#/definitions/httptransport.TenantBody'
     type: object
+  httptransport.DirectoryUserBody:
+    properties:
+      display_name:
+        type: string
+      id:
+        type: string
+      status:
+        type: string
+      username:
+        type: string
+    type: object
   httptransport.GetOrganizationUnitRequest:
     properties:
       organization_unit_id:
@@ -424,6 +435,20 @@ definitions:
       version:
         type: integer
     type: object
+  httptransport.MembershipDirectoryBody:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/httptransport.MembershipDirectoryItemBody'
+        type: array
+    type: object
+  httptransport.MembershipDirectoryItemBody:
+    properties:
+      membership:
+        $ref: '#/definitions/httptransport.MembershipBody'
+      user:
+        $ref: '#/definitions/httptransport.DirectoryUserBody'
+    type: object
   httptransport.MembershipPageBody:
     properties:
       memberships:
@@ -553,6 +578,17 @@ definitions:
         type: integer
       status:
         type: string
+      tenant_id:
+        type: string
+    required:
+    - tenant_id
+    type: object
+  httptransport.SearchMembershipDirectoryRequest:
+    properties:
+      keyword:
+        type: string
+      limit:
+        type: integer
       tenant_id:
         type: string
     required:
@@ -1090,6 +1126,34 @@ paths:
       security:
       - Bearer: []
       summary: Get a bounded set of tenant memberships by ID
+      tags:
+      - memberships
+  /api/v1/memberships/directory/search:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant, identity keyword and result limit
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.SearchMembershipDirectoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.MembershipDirectoryBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: Search active tenant members by user identity
       tags:
       - memberships
   /api/v1/memberships/list:

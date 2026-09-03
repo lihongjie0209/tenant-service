@@ -3,6 +3,7 @@ package httptransport
 import (
 	"time"
 
+	"github.com/lihongjie0209/tenant-service/internal/identityclient"
 	tenant "github.com/lihongjie0209/tenant-service/internal/tenant"
 )
 
@@ -117,6 +118,22 @@ type MembershipBatchBody struct {
 	Memberships []MembershipBody `json:"memberships"`
 }
 
+type DirectoryUserBody struct {
+	ID          string `json:"id"`
+	Username    string `json:"username"`
+	DisplayName string `json:"display_name"`
+	Status      string `json:"status"`
+}
+
+type MembershipDirectoryItemBody struct {
+	Membership MembershipBody    `json:"membership"`
+	User       DirectoryUserBody `json:"user"`
+}
+
+type MembershipDirectoryBody struct {
+	Items []MembershipDirectoryItemBody `json:"items"`
+}
+
 type InvitationPageBody struct {
 	Invitations []InvitationBody `json:"invitations"`
 	Total       int64            `json:"total"`
@@ -211,6 +228,15 @@ func membershipPageBody(value tenant.MembershipPage) MembershipPageBody {
 
 func membershipBatchBody(values []tenant.Membership) MembershipBatchBody {
 	return MembershipBatchBody{Memberships: mapBodies(values, membershipBody)}
+}
+
+func membershipDirectoryItemBody(membership tenant.Membership, user identityclient.User) MembershipDirectoryItemBody {
+	return MembershipDirectoryItemBody{
+		Membership: membershipBody(membership),
+		User: DirectoryUserBody{
+			ID: user.ID, Username: user.Username, DisplayName: user.DisplayName, Status: user.Status,
+		},
+	}
 }
 
 func groupPageBody(value tenant.GroupPage) GroupPageBody {

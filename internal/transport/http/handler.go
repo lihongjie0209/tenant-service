@@ -18,12 +18,13 @@ type Handler struct {
 	logger *slog.Logger
 	health *health.Service
 
-	tenants *tenant.Service
-	issuer  identityclient.Issuer
+	tenants  *tenant.Service
+	issuer   identityclient.Issuer
+	identity identityclient.Directory
 }
 
 func NewHandler(healthService *health.Service, tenantService *tenant.Service, issuer *identityclient.Client, logger *slog.Logger) *Handler {
-	return &Handler{health: healthService, tenants: tenantService, issuer: issuer, logger: logger}
+	return &Handler{health: healthService, tenants: tenantService, issuer: issuer, identity: issuer, logger: logger}
 }
 
 type MeResponseBody struct {
@@ -77,6 +78,11 @@ type ListMembershipsRequest struct {
 type BatchGetMembershipsRequest struct {
 	TenantID      string   `json:"tenant_id" binding:"required"`
 	MembershipIDs []string `json:"membership_ids" binding:"required"`
+}
+type SearchMembershipDirectoryRequest struct {
+	TenantID string `json:"tenant_id" binding:"required"`
+	Keyword  string `json:"keyword"`
+	Limit    int    `json:"limit"`
 }
 type ListUserTenantsRequest struct {
 	UserID   string `json:"user_id" binding:"required"`
@@ -457,6 +463,72 @@ func (h *Handler) BatchGetMemberships(c *gin.Context) {
 		return
 	}
 	OK(c, membershipBatchBody(items))
+}
+
+// SearchMembershipDirectory godoc
+// @Summary Search active tenant members by user identity
+// @Tags memberships
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body SearchMembershipDirectoryRequest true "Tenant, identity keyword and result limit"
+// @Success 200 {object} Response{body=MembershipDirectoryBody}
+// @Router /api/v1/memberships/directory/search [post]
+func (h *Handler) SearchMembershipDirectory(c *gin.Context) {
+	var request SearchMembershipDirectoryRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	limit := request.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 50 {
+		Fail(c, h.logger, apperror.Invalid("limit must not exceed 50", nil))
+		return
+	}
+	if h.identity == nil {
+		Fail(c, h.logger, apperror.Unavailable("identity service is unavailable", identityclient.ErrUnavailable))
+		return
+	}
+	const candidatePageSize = 100
+	const maxCandidatePages = 5
+	items := make([]MembershipDirectoryItemBody, 0, limit)
+	for page := 1; page <= maxCandidatePages && len(items) < limit; page++ {
+		users, err := h.identity.ListUsers(c.Request.Context(), request.Keyword, page, candidatePageSize)
+		if err != nil {
+			Fail(c, h.logger, apperror.Unavailable("identity service is unavailable", err))
+			return
+		}
+		userIDs := make([]string, 0, len(users.Users))
+		for _, user := range users.Users {
+			userIDs = append(userIDs, user.ID)
+		}
+		memberships, err := h.tenants.FindMembershipsByUserIDs(c.Request.Context(), request.TenantID, userIDs, "active")
+		if err != nil {
+			Fail(c, h.logger, err)
+			return
+		}
+		membershipByUserID := make(map[string]tenant.Membership, len(memberships))
+		for _, membership := range memberships {
+			membershipByUserID[membership.UserID] = membership
+		}
+		for _, user := range users.Users {
+			membership, ok := membershipByUserID[user.ID]
+			if !ok {
+				continue
+			}
+			items = append(items, membershipDirectoryItemBody(membership, user))
+			if len(items) == limit {
+				break
+			}
+		}
+		if len(users.Users) < candidatePageSize || uint64(page*candidatePageSize) >= users.Total {
+			break
+		}
+	}
+	OK(c, MembershipDirectoryBody{Items: items})
 }
 
 // ListUserTenants godoc

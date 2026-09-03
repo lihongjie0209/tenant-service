@@ -111,6 +111,9 @@ func (f *fakeRepository) ListMemberships(context.Context, string, string, string
 func (f *fakeRepository) BatchGetMemberships(context.Context, string, []string) ([]Membership, error) {
 	return []Membership{f.membership}, nil
 }
+func (f *fakeRepository) FindMembershipsByUserIDs(context.Context, string, []string, string) ([]Membership, error) {
+	return []Membership{f.membership}, nil
+}
 
 type capturingBatchMembershipRepository struct {
 	fakeRepository
@@ -342,6 +345,29 @@ func TestService_BatchGetMembershipsValidatesAndDeduplicatesIDs(t *testing.T) {
 	}
 }
 
+func TestService_FindMembershipsByUserIDsValidatesInput(t *testing.T) {
+	t.Parallel()
+	service := NewService(&fakeRepository{}, &database.Transactor{}, nil)
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "service-1", Type: principal.TypeServiceAccount})
+	items, err := service.FindMembershipsByUserIDs(ctx, "tenant-1", nil, "active")
+	if err != nil || len(items) != 0 {
+		t.Fatalf("empty FindMembershipsByUserIDs() = (%+v, %v)", items, err)
+	}
+	_, err = service.FindMembershipsByUserIDs(ctx, "tenant-1", []string{"user-1"}, "unknown")
+	var appErr *apperror.Error
+	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInvalidArgument {
+		t.Fatalf("invalid status error = %#v", err)
+	}
+	userIDs := make([]string, 101)
+	for index := range userIDs {
+		userIDs[index] = fmt.Sprintf("user-%d", index)
+	}
+	_, err = service.FindMembershipsByUserIDs(ctx, "tenant-1", userIDs, "active")
+	if !errors.As(err, &appErr) || appErr.Code != apperror.CodeInvalidArgument {
+		t.Fatalf("oversized user list error = %#v", err)
+	}
+}
+
 func TestService_AddMembershipRejectsOrganizationFromAnotherTenant(t *testing.T) {
 	t.Parallel()
 	repository := &fakeRepository{organizations: map[string]OrganizationUnit{
@@ -404,6 +430,29 @@ func TestSQLRepository_BatchGetMembershipsScopesIDsToTenant(t *testing.T) {
 	}
 	if len(items) != 1 || items[0].TenantID != "tenant-1" {
 		t.Fatalf("BatchGetMemberships() = %+v", items)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSQLRepository_FindMembershipsByUserIDsScopesTenantAndStatus(t *testing.T) {
+	t.Parallel()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	repository := &SQLRepository{db: sqlx.NewDb(db, "sqlmock")}
+	query := "SELECT " + membershipSelectColumns + " FROM memberships WHERE tenant_id = ? AND user_id IN (?, ?) AND status = ? ORDER BY id"
+	now := time.Date(2026, 9, 3, 8, 0, 0, 0, time.FixedZone("UTC+8", 8*60*60))
+	mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs("tenant-1", "user-1", "user-2", "active").WillReturnRows(
+		sqlmock.NewRows([]string{"id", "tenant_id", "user_id", "status", "primary_organization_unit_id", "joined_at", "version", "created_at", "updated_at", "created_by", "updated_by"}).
+			AddRow("membership-1", "tenant-1", "user-1", "active", "", now, 1, now, now, "admin", "admin"),
+	)
+	items, err := repository.FindMembershipsByUserIDs(t.Context(), "tenant-1", []string{"user-1", "user-2"}, "active")
+	if err != nil || len(items) != 1 || items[0].UserID != "user-1" {
+		t.Fatalf("FindMembershipsByUserIDs() = (%+v, %v)", items, err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)

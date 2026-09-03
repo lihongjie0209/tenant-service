@@ -298,6 +298,37 @@ func (s *Service) BatchGetMemberships(ctx context.Context, tenantID string, ids 
 	items, err := s.repository.BatchGetMemberships(ctx, tenantID, unique)
 	return items, translate(err)
 }
+
+func (s *Service) FindMembershipsByUserIDs(ctx context.Context, tenantID string, userIDs []string, status string) ([]Membership, error) {
+	tenantID, status = strings.TrimSpace(tenantID), strings.TrimSpace(status)
+	if tenantID == "" || (status != "" && !validMembershipStatus(status)) {
+		return nil, apperror.Invalid("invalid membership directory query", nil)
+	}
+	if err := authorizeTenant(ctx, tenantID); err != nil {
+		return nil, err
+	}
+	unique := make([]string, 0, len(userIDs))
+	seen := make(map[string]struct{}, len(userIDs))
+	for _, id := range userIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return nil, apperror.Invalid("user_ids must not contain empty values", nil)
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return []Membership{}, nil
+	}
+	if len(unique) > 100 {
+		return nil, apperror.Invalid("user_ids must not contain more than 100 values", nil)
+	}
+	items, err := s.repository.FindMembershipsByUserIDs(ctx, tenantID, unique, status)
+	return items, translate(err)
+}
 func (s *Service) ListTenants(ctx context.Context, keyword, status string, page, pageSize int) (Page, error) {
 	keyword, status = strings.TrimSpace(keyword), strings.TrimSpace(status)
 	if status != "" && !validTenantStatus(status) {

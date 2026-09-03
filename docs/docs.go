@@ -707,6 +707,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/memberships/directory/search": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "memberships"
+                ],
+                "summary": "Search active tenant members by user identity",
+                "parameters": [
+                    {
+                        "description": "Tenant, identity keyword and result limit",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httptransport.SearchMembershipDirectoryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httptransport.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "body": {
+                                            "$ref": "#/definitions/httptransport.MembershipDirectoryBody"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/memberships/list": {
             "post": {
                 "security": [
@@ -1924,6 +1974,23 @@ const docTemplate = `{
                 }
             }
         },
+        "httptransport.DirectoryUserBody": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "httptransport.GetOrganizationUnitRequest": {
             "type": "object",
             "required": [
@@ -2330,6 +2397,28 @@ const docTemplate = `{
                 }
             }
         },
+        "httptransport.MembershipDirectoryBody": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httptransport.MembershipDirectoryItemBody"
+                    }
+                }
+            }
+        },
+        "httptransport.MembershipDirectoryItemBody": {
+            "type": "object",
+            "properties": {
+                "membership": {
+                    "$ref": "#/definitions/httptransport.MembershipBody"
+                },
+                "user": {
+                    "$ref": "#/definitions/httptransport.DirectoryUserBody"
+                }
+            }
+        },
         "httptransport.MembershipPageBody": {
             "type": "object",
             "properties": {
@@ -2528,6 +2617,23 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httptransport.SearchMembershipDirectoryRequest": {
+            "type": "object",
+            "required": [
+                "tenant_id"
+            ],
+            "properties": {
+                "keyword": {
+                    "type": "string"
+                },
+                "limit": {
+                    "type": "integer"
                 },
                 "tenant_id": {
                     "type": "string"
