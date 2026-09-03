@@ -266,6 +266,27 @@ func (f *fakeRepository) GetGroupMember(context.Context, string, string) (GroupM
 	}
 	return f.groupMember, nil
 }
+
+func TestService_MutationLookupsEnforceTenantScope(t *testing.T) {
+	repository := &fakeRepository{
+		invitation:  Invitation{ID: "invitation-1", TenantID: "tenant-1", Version: 3},
+		groupMember: GroupMember{ID: "group-member-1", TenantID: "tenant-1", GroupID: "group-1", MembershipID: "membership-1", Version: 4},
+	}
+	service := NewService(repository, &database.Transactor{}, nil)
+	ctx := principal.WithContext(t.Context(), principal.Principal{ID: "admin-1", Type: principal.TypeUser, TenantID: "tenant-1"})
+	invitation, err := service.GetInvitation(ctx, " invitation-1 ")
+	if err != nil || invitation.Version != 3 {
+		t.Fatalf("GetInvitation() = (%+v, %v)", invitation, err)
+	}
+	member, err := service.GetGroupMember(ctx, " group-1 ", " membership-1 ")
+	if err != nil || member.Version != 4 {
+		t.Fatalf("GetGroupMember() = (%+v, %v)", member, err)
+	}
+	other := principal.WithContext(t.Context(), principal.Principal{ID: "admin-2", Type: principal.TypeUser, TenantID: "tenant-2"})
+	if _, err := service.GetInvitation(other, "invitation-1"); err == nil {
+		t.Fatal("cross-tenant invitation lookup must fail")
+	}
+}
 func (f *fakeRepository) UpdateGroupMember(_ context.Context, _ sqlx.ExtContext, value GroupMember) error {
 	if f.updateErr == nil {
 		value.Version++

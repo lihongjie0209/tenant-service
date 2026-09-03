@@ -195,6 +195,13 @@ definitions:
       username:
         type: string
     type: object
+  httptransport.GetInvitationRequest:
+    properties:
+      invitation_id:
+        type: string
+    required:
+    - invitation_id
+    type: object
   httptransport.GetOrganizationUnitRequest:
     properties:
       organization_unit_id:
@@ -984,6 +991,34 @@ paths:
       summary: Get group membership state for a bounded membership set
       tags:
       - groups
+  /api/v1/groups/members/get:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Group and membership IDs
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.GroupMemberRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.GroupMemberBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: Get a group membership assignment
+      tags:
+      - groups
   /api/v1/groups/members/list:
     post:
       consumes:
@@ -1122,6 +1157,34 @@ paths:
       security:
       - Bearer: []
       summary: Create a tenant invitation
+      tags:
+      - invitations
+  /api/v1/invitations/get:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Invitation ID
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httptransport.GetInvitationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httptransport.Response'
+            - properties:
+                body:
+                  $ref: '#/definitions/httptransport.InvitationBody'
+              type: object
+      security:
+      - Bearer: []
+      summary: Get an invitation by ID
       tags:
       - invitations
   /api/v1/invitations/list:

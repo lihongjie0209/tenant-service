@@ -145,6 +145,21 @@ func (s *Service) RevokeInvitation(ctx context.Context, id string, version int64
 	return s.repository.GetInvitation(ctx, id)
 }
 
+func (s *Service) GetInvitation(ctx context.Context, id string) (Invitation, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return Invitation{}, apperror.Invalid("invitation_id is required", nil)
+	}
+	value, err := s.repository.GetInvitation(ctx, id)
+	if err != nil {
+		return Invitation{}, translate(err)
+	}
+	if err := authorizeTenant(ctx, value.TenantID); err != nil {
+		return Invitation{}, err
+	}
+	return value, nil
+}
+
 func (s *Service) ListInvitations(ctx context.Context, tenantID string, page, pageSize int) (InvitationPage, error) {
 	if err := authorizeTenant(ctx, tenantID); err != nil {
 		return InvitationPage{}, err
@@ -342,6 +357,20 @@ func (s *Service) BatchGetGroupMembers(ctx context.Context, groupID string, memb
 	}
 	values, err := s.repository.BatchGetGroupMembers(ctx, groupID, unique)
 	return values, translate(err)
+}
+func (s *Service) GetGroupMember(ctx context.Context, groupID, membershipID string) (GroupMember, error) {
+	groupID, membershipID = strings.TrimSpace(groupID), strings.TrimSpace(membershipID)
+	if groupID == "" || membershipID == "" {
+		return GroupMember{}, apperror.Invalid("group_id and membership_id are required", nil)
+	}
+	value, err := s.repository.GetGroupMember(ctx, groupID, membershipID)
+	if err != nil {
+		return GroupMember{}, translate(err)
+	}
+	if err := authorizeTenant(ctx, value.TenantID); err != nil {
+		return GroupMember{}, err
+	}
+	return value, nil
 }
 func (s *Service) RemoveGroupMember(ctx context.Context, groupID, membershipID string, version int64) error {
 	value, err := s.repository.GetGroupMember(ctx, groupID, membershipID)

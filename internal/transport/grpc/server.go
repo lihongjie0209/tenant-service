@@ -82,8 +82,8 @@ func tenantGRPCRequirement(enabled bool) platformauthz.GRPCResolver {
 			tenantv1.TenantService_GetTenant_FullMethodName: {Resource: "tenant.profile", Action: "read", Scope: platformauthz.ScopePlatform}, tenantv1.TenantService_ListTenants_FullMethodName: {Resource: "tenant.profile", Action: "list", Scope: platformauthz.ScopePlatform}, tenantv1.TenantService_UpdateTenant_FullMethodName: {Resource: "tenant.profile", Action: "update", Scope: platformauthz.ScopePlatform},
 			tenantv1.TenantService_AddMembership_FullMethodName: {Resource: "tenant.membership", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_UpdateMembership_FullMethodName: {Resource: "tenant.membership", Action: "update", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListMemberships_FullMethodName: {Resource: "tenant.membership", Action: "list", Scope: platformauthz.ScopePrincipal},
 			tenantv1.TenantService_CreateOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_GetOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "read", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_UpdateOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "update", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListOrganizationUnits_FullMethodName: {Resource: "tenant.organization-unit", Action: "list", Scope: platformauthz.ScopePrincipal},
-			tenantv1.TenantService_CreateInvitation_FullMethodName: {Resource: "tenant.invitation", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_RevokeInvitation_FullMethodName: {Resource: "tenant.invitation", Action: "revoke", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListInvitations_FullMethodName: {Resource: "tenant.invitation", Action: "list", Scope: platformauthz.ScopePrincipal},
-			tenantv1.TenantService_CreateGroup_FullMethodName: {Resource: "tenant.group", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_UpdateGroup_FullMethodName: {Resource: "tenant.group", Action: "update", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_AddGroupMember_FullMethodName: {Resource: "tenant.group", Action: "add-member", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_RemoveGroupMember_FullMethodName: {Resource: "tenant.group", Action: "remove-member", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListGroupMembers_FullMethodName: {Resource: "tenant.group", Action: "list-members", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListGroups_FullMethodName: {Resource: "tenant.group", Action: "list", Scope: platformauthz.ScopePrincipal},
+			tenantv1.TenantService_CreateInvitation_FullMethodName: {Resource: "tenant.invitation", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_GetInvitation_FullMethodName: {Resource: "tenant.invitation", Action: "read", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_RevokeInvitation_FullMethodName: {Resource: "tenant.invitation", Action: "revoke", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListInvitations_FullMethodName: {Resource: "tenant.invitation", Action: "list", Scope: platformauthz.ScopePrincipal},
+			tenantv1.TenantService_CreateGroup_FullMethodName: {Resource: "tenant.group", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_UpdateGroup_FullMethodName: {Resource: "tenant.group", Action: "update", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_AddGroupMember_FullMethodName: {Resource: "tenant.group", Action: "add-member", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_GetGroupMember_FullMethodName: {Resource: "tenant.group", Action: "read-member", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_RemoveGroupMember_FullMethodName: {Resource: "tenant.group", Action: "remove-member", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListGroupMembers_FullMethodName: {Resource: "tenant.group", Action: "list-members", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListGroups_FullMethodName: {Resource: "tenant.group", Action: "list", Scope: platformauthz.ScopePrincipal},
 			tenantv1.TenantService_GetQuota_FullMethodName: {Resource: "tenant.quota", Action: "read", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListQuotas_FullMethodName: {Resource: "tenant.quota", Action: "list", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_SetQuota_FullMethodName: {Resource: "tenant.quota", Action: "update", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ConsumeQuota_FullMethodName: {Resource: "tenant.quota", Action: "consume", Scope: platformauthz.ScopePrincipal},
 		}
 		requirement, ok := requirements[method]
@@ -224,6 +224,13 @@ func (s *tenantServer) RevokeInvitation(ctx context.Context, request *tenantv1.R
 	}
 	return &tenantv1.RevokeInvitationResponse{Invitation: toProtoInvitation(value)}, nil
 }
+func (s *tenantServer) GetInvitation(ctx context.Context, request *tenantv1.GetInvitationRequest) (*tenantv1.GetInvitationResponse, error) {
+	value, err := s.service.GetInvitation(ctx, request.GetInvitationId())
+	if err != nil {
+		return nil, err
+	}
+	return &tenantv1.GetInvitationResponse{Invitation: toProtoInvitation(value)}, nil
+}
 func (s *tenantServer) ListInvitations(ctx context.Context, request *tenantv1.ListInvitationsRequest) (*tenantv1.ListInvitationsResponse, error) {
 	pageNumber, pageSize := 0, 0
 	if request.GetPage() != nil {
@@ -264,6 +271,13 @@ func (s *tenantServer) RemoveGroupMember(ctx context.Context, request *tenantv1.
 		return nil, grpcError(err)
 	}
 	return &tenantv1.RemoveGroupMemberResponse{Removed: true}, nil
+}
+func (s *tenantServer) GetGroupMember(ctx context.Context, request *tenantv1.GetGroupMemberRequest) (*tenantv1.GetGroupMemberResponse, error) {
+	value, err := s.service.GetGroupMember(ctx, request.GetGroupId(), request.GetMembershipId())
+	if err != nil {
+		return nil, err
+	}
+	return &tenantv1.GetGroupMemberResponse{GroupMember: toProtoGroupMember(value)}, nil
 }
 func (s *tenantServer) ListGroupMembers(ctx context.Context, request *tenantv1.ListGroupMembersRequest) (*tenantv1.ListGroupMembersResponse, error) {
 	values, err := s.service.ListGroupMembers(ctx, request.GetGroupId())

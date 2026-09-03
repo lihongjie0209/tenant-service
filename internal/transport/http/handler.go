@@ -158,6 +158,9 @@ type RevokeInvitationRequest struct {
 	InvitationID string `json:"invitation_id" binding:"required"`
 	Version      int64  `json:"version" binding:"required,gt=0"`
 }
+type GetInvitationRequest struct {
+	InvitationID string `json:"invitation_id" binding:"required"`
+}
 type ListInvitationsRequest struct {
 	TenantID string `json:"tenant_id" binding:"required"`
 	Page     int    `json:"page"`
@@ -831,6 +834,29 @@ func (h *Handler) RevokeInvitation(c *gin.Context) {
 	OK(c, invitationBody(value))
 }
 
+// GetInvitation godoc
+// @Summary Get an invitation by ID
+// @Tags invitations
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body GetInvitationRequest true "Invitation ID"
+// @Success 200 {object} Response{body=InvitationBody}
+// @Router /api/v1/invitations/get [post]
+func (h *Handler) GetInvitation(c *gin.Context) {
+	var request GetInvitationRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	value, err := h.tenants.GetInvitation(c.Request.Context(), request.InvitationID)
+	if err != nil {
+		Fail(c, h.logger, err)
+		return
+	}
+	OK(c, invitationBody(value))
+}
+
 // ListInvitations godoc
 // @Summary List tenant invitations
 // @Tags invitations
@@ -942,6 +968,29 @@ func (h *Handler) RemoveGroupMember(c *gin.Context) {
 		return
 	}
 	OK(c, RemoveGroupMemberResponseBody{Removed: true})
+}
+
+// GetGroupMember godoc
+// @Summary Get a group membership assignment
+// @Tags groups
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body GroupMemberRequest true "Group and membership IDs"
+// @Success 200 {object} Response{body=GroupMemberBody}
+// @Router /api/v1/groups/members/get [post]
+func (h *Handler) GetGroupMember(c *gin.Context) {
+	var request GroupMemberRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		Fail(c, h.logger, apperror.Invalid("invalid json request", err))
+		return
+	}
+	value, err := h.tenants.GetGroupMember(c.Request.Context(), request.GroupID, request.MembershipID)
+	if err != nil {
+		Fail(c, h.logger, err)
+		return
+	}
+	OK(c, groupMemberBody(value))
 }
 
 // ListGroupMembers godoc
