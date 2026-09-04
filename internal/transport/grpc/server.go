@@ -24,6 +24,8 @@ import (
 	"github.com/lihongjie0209/tenant-service/internal/environment"
 	apphealth "github.com/lihongjie0209/tenant-service/internal/health"
 	"github.com/lihongjie0209/tenant-service/internal/idempotency"
+	"github.com/lihongjie0209/tenant-service/internal/identityclient"
+	"github.com/lihongjie0209/tenant-service/internal/membershipdirectory"
 	"github.com/lihongjie0209/tenant-service/internal/observability"
 	"github.com/lihongjie0209/tenant-service/internal/requestid"
 	tenantdomain "github.com/lihongjie0209/tenant-service/internal/tenant"
@@ -47,7 +49,7 @@ type Server struct {
 	logger  *slog.Logger
 }
 
-func NewServer(lc fx.Lifecycle, cfg config.Config, authService *auth.Service, authorizer platformauthz.Authorizer, healthService *apphealth.Service, tenantService *tenantdomain.Service, dictionaryProvider *tenantdomain.DictionaryProvider, idempotencyManager *idempotency.Manager, metrics *observability.Metrics, logger *slog.Logger) (*Server, error) {
+func NewServer(lc fx.Lifecycle, cfg config.Config, authService *auth.Service, authorizer platformauthz.Authorizer, healthService *apphealth.Service, tenantService *tenantdomain.Service, identityDirectory *identityclient.Client, dictionaryProvider *tenantdomain.DictionaryProvider, idempotencyManager *idempotency.Manager, metrics *observability.Metrics, logger *slog.Logger) (*Server, error) {
 	options := []grpc.ServerOption{
 		grpc.MaxRecvMsgSize(cfg.GRPC.MaxReceiveBytes),
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
@@ -62,7 +64,7 @@ func NewServer(lc fx.Lifecycle, cfg config.Config, authService *auth.Service, au
 		options = append(options, grpc.Creds(creds))
 	}
 	grpcServer := grpc.NewServer(options...)
-	tenantv1.RegisterTenantServiceServer(grpcServer, &tenantServer{service: tenantService})
+	tenantv1.RegisterTenantServiceServer(grpcServer, &tenantServer{service: tenantService, identity: identityDirectory})
 	dictionaryv1.RegisterDictionaryProviderServiceServer(grpcServer, &dictionaryProviderServer{provider: dictionaryProvider})
 	grpc_health_v1.RegisterHealthServer(grpcServer, &healthServer{health: healthService})
 	if cfg.GRPC.ReflectionEnabled {
@@ -83,7 +85,8 @@ func tenantGRPCRequirement(enabled bool) platformauthz.GRPCResolver {
 			tenantv1.TenantService_GetGroup_FullMethodName:      {Resource: "tenant.group", Action: "read", Scope: platformauthz.ScopePrincipal},
 			tenantv1.TenantService_GetTenant_FullMethodName:     {Resource: "tenant.profile", Action: "read", Scope: platformauthz.ScopePlatform}, tenantv1.TenantService_ListTenants_FullMethodName: {Resource: "tenant.profile", Action: "list", Scope: platformauthz.ScopePlatform}, tenantv1.TenantService_UpdateTenant_FullMethodName: {Resource: "tenant.profile", Action: "update", Scope: platformauthz.ScopePlatform},
 			tenantv1.TenantService_AddMembership_FullMethodName: {Resource: "tenant.membership", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_UpdateMembership_FullMethodName: {Resource: "tenant.membership", Action: "update", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListMemberships_FullMethodName: {Resource: "tenant.membership", Action: "list", Scope: platformauthz.ScopePrincipal},
-			tenantv1.TenantService_CreateOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_GetOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "read", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_UpdateOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "update", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListOrganizationUnits_FullMethodName: {Resource: "tenant.organization-unit", Action: "list", Scope: platformauthz.ScopePrincipal},
+			tenantv1.TenantService_SearchMembershipDirectory_FullMethodName: {Resource: "tenant.membership", Action: "list", Scope: platformauthz.ScopePrincipal},
+			tenantv1.TenantService_CreateOrganizationUnit_FullMethodName:    {Resource: "tenant.organization-unit", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_GetOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "read", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_UpdateOrganizationUnit_FullMethodName: {Resource: "tenant.organization-unit", Action: "update", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListOrganizationUnits_FullMethodName: {Resource: "tenant.organization-unit", Action: "list", Scope: platformauthz.ScopePrincipal},
 			tenantv1.TenantService_CreateInvitation_FullMethodName: {Resource: "tenant.invitation", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_GetInvitation_FullMethodName: {Resource: "tenant.invitation", Action: "read", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_RevokeInvitation_FullMethodName: {Resource: "tenant.invitation", Action: "revoke", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListInvitations_FullMethodName: {Resource: "tenant.invitation", Action: "list", Scope: platformauthz.ScopePrincipal},
 			tenantv1.TenantService_CreateGroup_FullMethodName: {Resource: "tenant.group", Action: "create", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_UpdateGroup_FullMethodName: {Resource: "tenant.group", Action: "update", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_AddGroupMember_FullMethodName: {Resource: "tenant.group", Action: "add-member", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_GetGroupMember_FullMethodName: {Resource: "tenant.group", Action: "read-member", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_RemoveGroupMember_FullMethodName: {Resource: "tenant.group", Action: "remove-member", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListGroupMembers_FullMethodName: {Resource: "tenant.group", Action: "list-members", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListGroups_FullMethodName: {Resource: "tenant.group", Action: "list", Scope: platformauthz.ScopePrincipal},
 			tenantv1.TenantService_GetQuota_FullMethodName: {Resource: "tenant.quota", Action: "read", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ListQuotas_FullMethodName: {Resource: "tenant.quota", Action: "list", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_SetQuota_FullMethodName: {Resource: "tenant.quota", Action: "update", Scope: platformauthz.ScopePrincipal}, tenantv1.TenantService_ConsumeQuota_FullMethodName: {Resource: "tenant.quota", Action: "consume", Scope: platformauthz.ScopePrincipal},
@@ -95,7 +98,8 @@ func tenantGRPCRequirement(enabled bool) platformauthz.GRPCResolver {
 
 type tenantServer struct {
 	tenantv1.UnimplementedTenantServiceServer
-	service *tenantdomain.Service
+	service  *tenantdomain.Service
+	identity identityclient.Directory
 }
 
 func (s *tenantServer) CreateTenant(ctx context.Context, request *tenantv1.CreateTenantRequest) (*tenantv1.CreateTenantResponse, error) {
@@ -172,6 +176,26 @@ func (s *tenantServer) ListMemberships(ctx context.Context, request *tenantv1.Li
 		Memberships: items,
 		Page:        &commonv1.PageResult{Total: uint64(page.Total), Page: uint32(page.Page), PageSize: uint32(page.PageSize)},
 	}, nil
+}
+func (s *tenantServer) SearchMembershipDirectory(ctx context.Context, request *tenantv1.SearchMembershipDirectoryRequest) (*tenantv1.SearchMembershipDirectoryResponse, error) {
+	limit := int(request.GetLimit())
+	if limit == 0 {
+		limit = 20
+	}
+	entries, err := membershipdirectory.Search(ctx, s.service, s.identity, request.GetTenantId(), request.GetKeyword(), limit)
+	if err != nil {
+		if errors.Is(err, membershipdirectory.ErrUnavailable) {
+			return nil, status.Error(codes.Unavailable, "identity directory is unavailable")
+		}
+		return nil, grpcError(err)
+	}
+	result := make([]*tenantv1.MembershipDirectoryEntry, 0, len(entries))
+	for _, entry := range entries {
+		result = append(result, &tenantv1.MembershipDirectoryEntry{
+			Membership: toProtoMembership(entry.Membership), Username: entry.User.Username, DisplayName: entry.User.DisplayName,
+		})
+	}
+	return &tenantv1.SearchMembershipDirectoryResponse{Entries: result}, nil
 }
 func (s *tenantServer) CreateOrganizationUnit(ctx context.Context, request *tenantv1.CreateOrganizationUnitRequest) (*tenantv1.CreateOrganizationUnitResponse, error) {
 	value, err := s.service.CreateOrganizationUnit(ctx, request.GetTenantId(), request.GetParentId(), request.GetCode(), request.GetName())

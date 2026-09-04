@@ -11,6 +11,7 @@ import (
 	"github.com/lihongjie0209/tenant-service/internal/buildinfo"
 	"github.com/lihongjie0209/tenant-service/internal/health"
 	"github.com/lihongjie0209/tenant-service/internal/identityclient"
+	"github.com/lihongjie0209/tenant-service/internal/membershipdirectory"
 	tenant "github.com/lihongjie0209/tenant-service/internal/tenant"
 )
 
@@ -553,41 +554,18 @@ func (h *Handler) SearchMembershipDirectory(c *gin.Context) {
 		Fail(c, h.logger, apperror.Unavailable("identity service is unavailable", identityclient.ErrUnavailable))
 		return
 	}
-	const candidatePageSize = 100
-	const maxCandidatePages = 5
-	items := make([]MembershipDirectoryItemBody, 0, limit)
-	for page := 1; page <= maxCandidatePages && len(items) < limit; page++ {
-		users, err := h.identity.ListUsers(c.Request.Context(), request.Keyword, page, candidatePageSize)
-		if err != nil {
+	entries, err := membershipdirectory.Search(c.Request.Context(), h.tenants, h.identity, request.TenantID, request.Keyword, limit)
+	if err != nil {
+		if errors.Is(err, membershipdirectory.ErrUnavailable) {
 			Fail(c, h.logger, apperror.Unavailable("identity service is unavailable", err))
-			return
-		}
-		userIDs := make([]string, 0, len(users.Users))
-		for _, user := range users.Users {
-			userIDs = append(userIDs, user.ID)
-		}
-		memberships, err := h.tenants.FindMembershipsByUserIDs(c.Request.Context(), request.TenantID, userIDs, "active")
-		if err != nil {
+		} else {
 			Fail(c, h.logger, err)
-			return
 		}
-		membershipByUserID := make(map[string]tenant.Membership, len(memberships))
-		for _, membership := range memberships {
-			membershipByUserID[membership.UserID] = membership
-		}
-		for _, user := range users.Users {
-			membership, ok := membershipByUserID[user.ID]
-			if !ok {
-				continue
-			}
-			items = append(items, membershipDirectoryItemBody(membership, user))
-			if len(items) == limit {
-				break
-			}
-		}
-		if len(users.Users) < candidatePageSize || uint64(page*candidatePageSize) >= users.Total {
-			break
-		}
+		return
+	}
+	items := make([]MembershipDirectoryItemBody, 0, len(entries))
+	for _, entry := range entries {
+		items = append(items, membershipDirectoryItemBody(entry.Membership, entry.User))
 	}
 	OK(c, MembershipDirectoryBody{Items: items})
 }
